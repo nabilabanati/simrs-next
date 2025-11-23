@@ -1,4 +1,5 @@
 import { useRouter } from "next/router"
+import { useState } from "react"
 
 import { useVisits } from "@/hooks/use-visits"
 import { formatDateTime } from "@/lib/shared/utils/date"
@@ -16,7 +17,9 @@ export default function PoliDashboardPage() {
   if (!poliSlug || typeof poliSlug !== "string") return null
 
   // DATA FROM HOOKS
-  
+  const [query, setQuery] = useState("")
+
+
   const { dateString, timeString } = formatDateTime()
 
   const {
@@ -29,8 +32,13 @@ export default function PoliDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
-
+      <DashboardHeader
+        doctorName="Andre"
+        greeting="Selamat Datang"
+        dateString={dateString}
+        timeString={timeString}
+      />
+      
       <div className="p-6">
         {/* Breadcrumb */}
         <Breadcrumb items={[`Poli ${poliSlug}`, "Dashboard"]} />
@@ -57,7 +65,11 @@ export default function PoliDashboardPage() {
 
             {/* SEARCH */}
             <div className="mt-8 mb-4 max-w-xs">
-              <SearchInput placeholder="Cari No. Reg, NRM, atau Nama Pasien" />
+              <SearchInput
+                value={query}
+                onChange={setQuery}
+                placeholder="Cari No. Reg, NRM, atau Nama Pasien"
+              />
             </div>
 
             {/* TABLE */}

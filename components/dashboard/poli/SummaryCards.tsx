@@ -2,6 +2,7 @@ interface SummaryCardsProps {
   total: number;
   waiting: number;
   completed: number;
+  loading?: boolean;
 }
 
 export default function SummaryCards({ total, waiting, completed }: SummaryCardsProps) {
