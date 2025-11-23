@@ -1,32 +1,37 @@
+// pages/dev/add-patients.tsx
+
 "use client";
 
 import { useState } from "react";
 import { DEV_ADDED_PATIENTS } from "@/lib/dummy/dev/dev-added";
-import { poliList } from "@/lib/dummy/poli-list";
+import { PatientData } from "@/lib/shared/types/patient";
+import { POLI_LIST } from "@/lib/poli/dummy/poli-list";
 
 export default function AddPatientDev() {
   const [form, setForm] = useState({
     nama: "",
     nrm: "",
-    jenisKelamin: "L",
+    jenisKelamin: "L" as "L" | "P",
     poliSlug: "",
   });
 
   function handleAdd() {
-    DEV_ADDED_PATIENTS.push({
-      id: "DEV-" + Date.now(),
-      nama: form.nama,
-      nrm: form.nrm,
-      jenisKelamin: form.jenisKelamin,
-      poliSlug: form.poliSlug,
+  DEV_ADDED_PATIENTS.push({
+    idPasien: "DEV-" + Date.now(),
+    nama: form.nama,
+    nrm: form.nrm,
+    jenisKelamin: form.jenisKelamin,
 
-      noAntrian: "DEV",
-      tanggal: new Date().toISOString(),
-      status: "waiting",
-    });
+    poli: form.poliSlug,
+    noAntrian: "DEV-" + Math.floor(Math.random() * 1000),
+    noRegistrasi: form.poliSlug.toUpperCase().slice(0,2) + "-" + Date.now(),
+    tanggalKunjungan: new Date().toISOString(),
 
-    alert("Pasien DEV berhasil ditambahkan!");
-  }
+    status: "waiting",
+  });
+
+  alert("Pasien DEV berhasil ditambahkan!");
+}
 
   return (
     <div className="p-8 max-w-xl mx-auto">
@@ -57,7 +62,7 @@ export default function AddPatientDev() {
         onChange={(e) => setForm({ ...form, poliSlug: e.target.value })}
       >
         <option value="">-- Pilih Poli --</option>
-        {poliList.map((p) => (
+        {POLI_LIST.map((p) => (
           <option key={p.slug} value={p.slug}>{p.name}</option>
         ))}
       </select>

@@ -1,21 +1,69 @@
-import Link from "next/link"
-import { POLI_LIST } from "@/lib/poli/dummy/poli"
+import { useRouter } from "next/router"
 
-export default function PoliIndexPage() {
+import { useVisits } from "@/hooks/use-visits"
+import { formatDateTime } from "@/lib/shared/utils/date"
+
+import DashboardHeader from "@/components/dashboard/poli/DashboardHeader"
+import SummaryCards from "@/components/dashboard/poli/SummaryCards"
+import Breadcrumb from "@/components/dashboard/poli/Breadcrumb"
+import VisitsTable from "@/components/dashboard/poli/VisitsTable"
+import SearchInput from "@/components/dashboard/poli/SearchInput"
+
+export default function PoliDashboardPage() {
+  const router = useRouter()
+  const { poliSlug } = router.query
+
+  if (!poliSlug || typeof poliSlug !== "string") return null
+
+  // DATA FROM HOOKS
+  
+  const { dateString, timeString } = formatDateTime()
+
+  const {
+    today,
+    loading,
+    totalToday,
+    totalWaiting,
+    totalCompleted,
+  } = useVisits(poliSlug as string)
+
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Daftar Poliklinik</h1>
+    <div className="min-h-screen bg-gray-50">
+      <DashboardHeader />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {POLI_LIST.map((poli) => (
-          <Link
-            key={poli.slug}
-            href={`/poly-clinic/poly/${poli.slug}`}
-            className="p-4 border rounded-lg shadow-sm bg-white hover:bg-gray-50 transition"
-          >
-            <p className="text-lg font-semibold">{poli.name}</p>
-          </Link>
-        ))}
+      <div className="p-6">
+        {/* Breadcrumb */}
+        <Breadcrumb items={[`Poli ${poliSlug}`, "Dashboard"]} />
+
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard Dokter</h1>
+          <p className="text-blue-600 font-semibold text-xl mt-1">
+            Selamat Datang, Dokter!
+          </p>
+        </div>
+
+        {/* Loading State */}
+        {loading ? (
+          <div className="text-center py-16 text-gray-500">Memuat data...</div>
+        ) : (
+          <>
+            {/* Summary Cards */}
+            <SummaryCards
+              total={totalToday}
+              waiting={totalWaiting}
+              completed={totalCompleted}
+              loading={loading}
+            />
+
+            {/* SEARCH */}
+            <div className="mt-8 mb-4 max-w-xs">
+              <SearchInput placeholder="Cari No. Reg, NRM, atau Nama Pasien" />
+            </div>
+
+            {/* TABLE */}
+            <VisitsTable visits={today}/>
+          </>
+        )}
       </div>
     </div>
   )

@@ -1,0 +1,65 @@
+"use client"
+
+import type { PatientVisit } from "@/lib/shared/types/visit"
+
+interface VisitsTableProps {
+  visits: PatientVisit[]
+  loading?: boolean
+}
+
+export default function VisitsTable({ visits, loading }: VisitsTableProps) {
+  if (loading) {
+    return (
+      <div className="p-6 text-center text-gray-500">
+        Memuat data pasien...
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto bg-white border rounded-lg">
+      <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <thead className="bg-blue-50">
+          <tr>
+            <th className="px-4 py-3 text-left font-medium">NO</th>
+            <th className="px-4 py-3 text-left font-medium">NO.ANTREAN</th>
+            <th className="px-4 py-3 text-left font-medium">NO.REGISTRASI</th>
+            <th className="px-4 py-3 text-left font-medium">TANGGAL</th>
+            <th className="px-4 py-3 text-left font-medium">NRM</th>
+            <th className="px-4 py-3 text-left font-medium">NAMA</th>
+            <th className="px-4 py-3 text-left font-medium">J.K.</th>
+            <th className="px-4 py-3 text-left font-medium">STATUS</th>
+          </tr>
+        </thead>
+
+        <tbody className="bg-white divide-y divide-gray-200">
+          {visits.map((v, i) => (
+            <tr key={v.idPasien} className="hover:bg-gray-50">
+              <td className="px-4 py-3">{i + 1}</td>
+              <td className="px-4 py-3">{v.noAntrian}</td>
+              <td className="px-4 py-3">{v.noRegistrasi}</td>
+              <td className="px-4 py-3">{v.tanggalKunjungan}</td>
+              <td className="px-4 py-3">{v.nrm}</td>
+              <td className="px-4 py-3">{v.nama}</td>
+              <td className="px-4 py-3">{v.jenisKelamin}</td>
+
+              <td className="px-4 py-3">
+                <span
+                  className={`px-2 py-1 text-xs rounded-full font-medium ${
+                    v.status === "completed"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-yellow-100 text-yellow-700"
+                  }`}
+                >
+                  {v.status === "completed"
+                    ? "Sudah Ditangani"
+                    : "Menunggu Penanganan"}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
