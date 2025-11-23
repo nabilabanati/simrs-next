@@ -1,0 +1,6 @@
+export * from "./patient"
+export * from "./visit"
+export * from "./poli"
+export * from "./resep"
+export * from "./farmasi"
+export * from "./user"
