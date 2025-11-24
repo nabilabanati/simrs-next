@@ -2,7 +2,7 @@ import { useRouter } from "next/router"
 import { useState } from "react"
 
 import { useVisits } from "@/hooks/use-visits"
-import { formatDateTime } from "@/lib/shared/utils/date"
+import { getFormattedDateTime } from "@/lib/shared/utils/date"
 
 import DashboardHeader from "@/components/dashboard/poli/DashboardHeader"
 import SummaryCards from "@/components/dashboard/poli/SummaryCards"
@@ -20,7 +20,7 @@ export default function PoliDashboardPage() {
   const [query, setQuery] = useState("")
 
 
-  const { dateString, timeString } = formatDateTime()
+  const { dateString, timeString } = getFormattedDateTime()
 
   const {
     today,
@@ -30,25 +30,26 @@ export default function PoliDashboardPage() {
     totalCompleted,
   } = useVisits(poliSlug as string)
 
+  const filteredVisits = today.filter((v) => {
+  const text = query.toLowerCase()
+  return (
+      v.noRegistrasi.toLowerCase().includes(text) ||
+      v.nrm.toLowerCase().includes(text) ||
+      v.nama.toLowerCase().includes(text) ||
+      v.noAntrian.toLowerCase().includes(text)
+    )
+  })
+
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader
         doctorName="Andre"
         greeting="Selamat Datang"
-        dateString={dateString}
-        timeString={timeString}
       />
       
       <div className="p-6">
         {/* Breadcrumb */}
         <Breadcrumb items={[`Poli ${poliSlug}`, "Dashboard"]} />
-
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard Dokter</h1>
-          <p className="text-blue-600 font-semibold text-xl mt-1">
-            Selamat Datang, Dokter!
-          </p>
-        </div>
 
         {/* Loading State */}
         {loading ? (
@@ -73,7 +74,8 @@ export default function PoliDashboardPage() {
             </div>
 
             {/* TABLE */}
-            <VisitsTable visits={today}/>
+            <VisitsTable visits={query ? filteredVisits : today} />
+
           </>
         )}
       </div>

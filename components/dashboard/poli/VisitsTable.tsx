@@ -1,6 +1,9 @@
 "use client"
 
 import type { PatientVisit } from "@/lib/shared/types/visit"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { ClipboardList } from "lucide-react"
 
 interface VisitsTableProps {
   visits: PatientVisit[]
@@ -28,6 +31,7 @@ export default function VisitsTable({ visits, loading }: VisitsTableProps) {
             <th className="px-4 py-3 text-left font-medium">NRM</th>
             <th className="px-4 py-3 text-left font-medium">NAMA</th>
             <th className="px-4 py-3 text-left font-medium">J.K.</th>
+            <th className="px-4 py-3 text-left font-medium">AKSI</th>
             <th className="px-4 py-3 text-left font-medium">STATUS</th>
           </tr>
         </thead>
@@ -42,7 +46,20 @@ export default function VisitsTable({ visits, loading }: VisitsTableProps) {
               <td className="px-4 py-3">{v.nrm}</td>
               <td className="px-4 py-3">{v.nama}</td>
               <td className="px-4 py-3">{v.jenisKelamin}</td>
-
+              <td className="px-4 py-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Lihat Riwayat Pasien"
+                  // onClick={() =>
+                  //   router.push(
+                  //     `/poliklinik/${v.poli}/riwayat/${v.nrm}`
+                  //   )
+                  // }
+                >
+                  <ClipboardList className="w-5 h-5 text-blue-600" />
+                </Button>
+              </td>
               <td className="px-4 py-3">
                 <span
                   className={`px-2 py-1 text-xs rounded-full font-medium ${

@@ -1,18 +1,26 @@
 "use client"
+import{useState, useEffect} from "react"
+import { getFormattedDateTime } from "@/lib/shared/utils"
 
 interface DashboardHeaderProps {
   doctorName?: string
   greeting?: string
-  dateString: string
-  timeString: string
 }
 
 export default function DashboardHeader({
   doctorName = "Dokter",
   greeting = "Selamat Datang!",
-  dateString,
-  timeString,
 }: DashboardHeaderProps) {
+  const [{ dateString, timeString }, setDateTime] = useState(getFormattedDateTime())
+
+  useEffect(() => {
+    // update tiap detik
+    const interval = setInterval(() => {
+      setDateTime(getFormattedDateTime())
+    }, 1000)
+
+    return () => clearInterval(interval) // cleanup
+  }, [])
   return (
     <div className="mb-6 flex justify-between items-center">
       <div>
