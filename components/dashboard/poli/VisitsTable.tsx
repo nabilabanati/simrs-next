@@ -1,16 +1,22 @@
 "use client"
 
 import type { PatientVisit } from "@/lib/shared/types/visit"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ClipboardList } from "lucide-react"
 
 interface VisitsTableProps {
   visits: PatientVisit[]
+  currentPage?: number
+  itemsPerPage?: number
   loading?: boolean
 }
 
-export default function VisitsTable({ visits, loading }: VisitsTableProps) {
+export default function VisitsTable({
+  visits,
+  currentPage = 1,
+  itemsPerPage = 10,
+  loading = false,
+}: VisitsTableProps) {
   if (loading) {
     return (
       <div className="p-6 text-center text-gray-500">
@@ -18,6 +24,13 @@ export default function VisitsTable({ visits, loading }: VisitsTableProps) {
       </div>
     )
   }
+
+  // 🔥 SORTING: waiting dulu, completed di belakang
+  const sortedVisits = [...visits].sort((a, b) => {
+    if (a.status === "waiting" && b.status === "completed") return -1
+    if (a.status === "completed" && b.status === "waiting") return 1
+    return Number(a.noAntrian) - Number(b.noAntrian)
+  })
 
   return (
     <div className="overflow-x-auto bg-white border rounded-lg">
@@ -37,29 +50,24 @@ export default function VisitsTable({ visits, loading }: VisitsTableProps) {
         </thead>
 
         <tbody className="bg-white divide-y divide-gray-200">
-          {visits.map((v, i) => (
-            <tr key={v.idPasien} className="hover:bg-gray-50">
-              <td className="px-4 py-3">{i + 1}</td>
+          {sortedVisits.map((v, index) => (
+            <tr key={v.noRegistrasi} className="hover:bg-gray-50">
+              <td className="px-4 py-3 font-medium">
+                {(currentPage - 1) * itemsPerPage + (index + 1)}
+              </td>
               <td className="px-4 py-3">{v.noAntrian}</td>
               <td className="px-4 py-3">{v.noRegistrasi}</td>
               <td className="px-4 py-3">{v.tanggalKunjungan}</td>
               <td className="px-4 py-3">{v.nrm}</td>
               <td className="px-4 py-3">{v.nama}</td>
               <td className="px-4 py-3">{v.jenisKelamin}</td>
+
               <td className="px-4 py-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  title="Lihat Riwayat Pasien"
-                  // onClick={() =>
-                  //   router.push(
-                  //     `/poliklinik/${v.poli}/riwayat/${v.nrm}`
-                  //   )
-                  // }
-                >
+                <Button variant="ghost" size="icon" title="Lihat Riwayat Pasien">
                   <ClipboardList className="w-5 h-5 text-blue-600" />
                 </Button>
               </td>
+
               <td className="px-4 py-3">
                 <span
                   className={`px-2 py-1 text-xs rounded-full font-medium ${
