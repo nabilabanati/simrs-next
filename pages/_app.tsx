@@ -58,10 +58,10 @@ function Layout({ children }: { children: React.ReactNode }) {
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
 
-  // Pages that should not use the layout
-  const noLayoutPages = ["/login", "/register"];
+  // Route prefixes that should not use the layout (e.g. public display and queue pages)
+  const noLayoutPrefixes = ["/login", "/register", "/loket-antrian"];
 
-  const shouldUseLayout = !noLayoutPages.includes(router.pathname);
+  const shouldUseLayout = !noLayoutPrefixes.some((prefix) => router.pathname.startsWith(prefix));
 
   if (shouldUseLayout) {
     return (
