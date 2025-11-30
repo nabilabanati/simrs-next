@@ -1,5 +1,7 @@
 "use client"
 
+import React from "react"
+import { useRouter } from "next/router"
 import type { PatientVisit } from "@/lib/shared/types/visit"
 import { Button } from "@/components/ui/button"
 import { ClipboardList } from "lucide-react"
@@ -25,13 +27,13 @@ export default function VisitsTable({
     )
   }
 
-  // 🔥 SORTING: waiting dulu, completed di belakang
   const sortedVisits = [...visits].sort((a, b) => {
     if (a.status === "waiting" && b.status === "completed") return -1
     if (a.status === "completed" && b.status === "waiting") return 1
     return Number(a.noAntrian) - Number(b.noAntrian)
   })
 
+  const router = useRouter()
   return (
     <div className="overflow-x-auto bg-white border rounded-lg">
       <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -63,7 +65,16 @@ export default function VisitsTable({
               <td className="px-4 py-3">{v.jenisKelamin}</td>
 
               <td className="px-4 py-4">
-                <Button variant="ghost" size="icon" title="Lihat Riwayat Pasien">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Detail Kunjungan"
+                  onClick={() =>
+                    router.push(
+                      `/poliklinik/${v.poli}/${v.idPasien}/${v.noRegistrasi}`
+                    )
+                  }
+                >
                   <ClipboardList className="w-5 h-5 text-blue-600" />
                 </Button>
               </td>
