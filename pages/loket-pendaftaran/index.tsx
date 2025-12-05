@@ -8,6 +8,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import {
   RotateCcw,
@@ -17,6 +25,8 @@ import {
   ChevronDown,
   Eye,
   Clock,
+  MoreVertical,
+  Download,
 } from 'lucide-react';
 import { patientData, type Patient } from '@/lib/patient-data';
 import { fetchClinics, fetchAllDoctors, fetchPaymentMethods } from '@/lib/api-client';
@@ -64,6 +74,19 @@ export default function RegistrationDeskPage() {
     loadData();
   }, []);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('div[class*="relative"]')) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -73,6 +96,7 @@ export default function RegistrationDeskPage() {
     doctor: '',
     payment: '',
   });
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
 
   // Update time every second
   useEffect(() => {
@@ -232,6 +256,72 @@ export default function RegistrationDeskPage() {
     setFormData({ clinic, doctor, payment });
     setShowAddModal(false);
     setShowReceiptModal(true);
+  };
+
+  // Export to CSV
+  const exportToCSV = () => {
+    const headers = ['NO.', 'TANGGAL', 'NRM', 'NAMA PASIEN', 'NIK', 'J.K.', 'POLIKLINIK', 'DOKTER PJ', 'CARA BAYAR', 'TINDAK LANJUT'];
+    const rows = filteredData.map((patient, idx) => [
+      idx + 1,
+      patient.date,
+      patient.nrm,
+      patient.name,
+      patient.nik,
+      patient.gender,
+      patient.clinic,
+      patient.doctor,
+      patient.payment,
+      patient.action,
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `pasien_${new Date().getTime()}.csv`;
+    link.click();
+  };
+
+  // Export to Excel
+  const exportToExcel = () => {
+    const headers = ['NO.', 'TANGGAL', 'NRM', 'NAMA PASIEN', 'NIK', 'J.K.', 'POLIKLINIK', 'DOKTER PJ', 'CARA BAYAR', 'TINDAK LANJUT'];
+    const rows = filteredData.map((patient, idx) => [
+      idx + 1,
+      patient.date,
+      patient.nrm,
+      patient.name,
+      patient.nik,
+      patient.gender,
+      patient.clinic,
+      patient.doctor,
+      patient.payment,
+      patient.action,
+    ]);
+
+    let html = '<table border="1"><tr>';
+    headers.forEach(header => {
+      html += `<th>${header}</th>`;
+    });
+    html += '</tr>';
+
+    rows.forEach(row => {
+      html += '<tr>';
+      row.forEach(cell => {
+        html += `<td>${cell}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</table>';
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `pasien_${new Date().getTime()}.xls`;
+    link.click();
   };
 
   const timeString = currentTime.toLocaleTimeString('id-ID', {
@@ -431,79 +521,92 @@ export default function RegistrationDeskPage() {
 
           {/* Patient Table */}
           <Card className="border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
-                <thead className="bg-blue-50">
-                  <tr className="text-left text-xs font-semibold text-gray-700 uppercase">
-                    <th className="px-6 py-3 font-bold text-gray-800">NO</th>
-                    <th className="px-6 py-3 font-bold text-gray-800">AKSI</th>
-                    <th className="px-6 py-3 font-bold text-gray-800">TANGGAL</th>
-                    <th className="px-6 py-3 font-bold text-gray-800">NRM</th>
-                    <th className="px-6 py-3 font-bold text-gray-800">NAMA PASIEN</th>
-                    <th className="px-6 py-3 font-bold text-gray-800">NIK</th>
-                    <th className="px-6 py-3 font-bold text-gray-800">J.K.</th>
-                    <th className="px-6 py-3 font-bold text-gray-800">POLIKLINIK</th>
-                    <th className="px-6 py-3 font-bold text-gray-800">DOKTER PJ</th>
-                    <th className="px-6 py-3 font-bold text-gray-800">CARA BAYAR</th>
-                    <th className="px-6 py-3 font-bold text-gray-800">TINDAK LANJUT</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200 text-sm text-gray-700">
-                  {filteredData.map((patient, idx) => (
-                    <tr key={patient.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-3 text-center">{idx + 1}</td>
-                      <td className="px-6 py-3 text-center">
-                        <div className="relative group inline-block">
-                          <button className="px-3 py-2 text-blue-600 hover:bg-blue-200 rounded text-xs flex items-center gap-1">
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                          <div className="absolute left-0 top-full hidden group-hover:block bg-white min-w-48 shadow-lg border rounded-lg z-50 mt-1">
+            <Table>
+              <TableHeader className="bg-blue-50">
+                <TableRow>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">AKSI</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">NO</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">TANGGAL</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">NRM</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">NAMA PASIEN</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">NIK</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">J.K.</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">POLIKLINIK</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">DOKTER PJ</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">CARA BAYAR</TableHead>
+                  <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">TINDAK LANJUT</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredData.map((patient, idx) => (
+                  <TableRow key={patient.id}>
+                    <TableCell className="px-6 py-4">
+                      <div className="relative z-20">
+                        <button
+                          onClick={() => setOpenDropdownId(openDropdownId === patient.id ? null : patient.id)}
+                          className="p-2 text-gray-600 hover:bg-gray-100 rounded inline-flex items-center"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        
+                        {openDropdownId === patient.id && (
+                          <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                             <button
-                              onClick={() => handleAddVisit(patient)}
-                              className="w-full flex items-center gap-3 py-2 px-3 text-blue-800 hover:bg-blue-100 text-sm text-left"
+                              onClick={() => {
+                                handleAddVisit(patient);
+                                setOpenDropdownId(null);
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 border-b border-gray-100"
                             >
                               <Plus className="w-4 h-4" />
                               Tambah Kunjungan
                             </button>
-                            <button className="w-full flex items-center gap-3 py-2 px-3 text-blue-800 hover:bg-blue-100 text-sm text-left">
+                            <button
+                              onClick={() => {
+                                router.push(`/pasien/detail?nrm=${patient.nrm}`);
+                                setOpenDropdownId(null);
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                            >
                               <Eye className="w-4 h-4" />
                               Lihat Detail
                             </button>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-3">{patient.date}</td>
-                      <td className="px-6 py-3 font-medium">{patient.nrm}</td>
-                      <td className="px-6 py-3">{patient.name}</td>
-                      <td className="px-6 py-3">{patient.nik}</td>
-                      <td className="px-6 py-3 text-center">{patient.gender}</td>
-                      <td className="px-6 py-3">{patient.clinic}</td>
-                      <td className="px-6 py-3">{patient.doctor}</td>
-                      <td className="px-6 py-3">{patient.payment}</td>
-                      <td className="px-6 py-3">
-                        <span className={`inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium ${getActionBadgeClass(patient.action)}`}>
-                          {patient.action}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-center">{idx + 1}</TableCell>
+                    <TableCell className="px-6 py-4">{patient.date}</TableCell>
+                    <TableCell className="px-6 py-4 font-medium">{patient.nrm}</TableCell>
+                    <TableCell className="px-6 py-4">{patient.name}</TableCell>
+                    <TableCell className="px-6 py-4">{patient.nik}</TableCell>
+                    <TableCell className="px-6 py-4 text-center">{patient.gender}</TableCell>
+                    <TableCell className="px-6 py-4">{patient.clinic}</TableCell>
+                    <TableCell className="px-6 py-4">{patient.doctor}</TableCell>
+                    <TableCell className="px-6 py-4">{patient.payment}</TableCell>
+                    <TableCell className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium ${getActionBadgeClass(patient.action)}`}>
+                        {patient.action}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
 
             {/* Pagination */}
-            <div className="px-4 py-3 border-t bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-sm text-gray-600">
-                Menampilkan 1-{filteredData.length} dari {filteredData.length} data
-              </p>
-              <div className="flex space-x-1">
-                <button className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border rounded">‹</button>
+            <div className="bg-gray-50 px-6 py-4 border-t flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Menampilkan 1 - {filteredData.length} dari {filteredData.length} data
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border rounded">‹</button>
                 <button className="px-3 py-2 text-sm bg-blue-500 text-white rounded">1</button>
                 <button className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border rounded">2</button>
                 <button className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border rounded">3</button>
                 <button className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700">...</button>
                 <button className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border rounded">10</button>
-                <button className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border rounded">›</button>
+                <button className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border rounded">›</button>
               </div>
             </div>
           </Card>

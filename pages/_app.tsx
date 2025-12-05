@@ -15,12 +15,12 @@ function Layout({ children }: { children: React.ReactNode }) {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
-                <Link href="/">Dashboard</Link>
+                <Link href="/loket-pendaftaran">Loket Pendaftaran</Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
-                <Link href="/patients">Pasien</Link>
+                <Link href="/pasien">Pasien</Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
