@@ -80,7 +80,10 @@ export default function PoliDashboardPage() {
 
       <div className="p-6">
         {/* BREADCRUMB */}
-        <Breadcrumb items={[poliName, "Dashboard"]} />
+        <Breadcrumb items={[
+          { label: poliName },
+          { label: "Dashboard", href: `/poliklinik/${poliSlug}` }
+        ]} />
 
         {/* HEADER */}
         <DashboardHeader

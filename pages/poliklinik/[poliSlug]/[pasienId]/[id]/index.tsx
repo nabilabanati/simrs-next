@@ -1,39 +1,43 @@
-// // pages/poliklinik/[poliSlug]/pasien/[pasienId]/[id]/index.tsx
+// pages/poliklinik/[poliSlug]/pasien/[pasienId]/[id]/index.tsx
 
-// import { useRouter } from "next/router"
-// import Breadcrumb from "@/components/dashboard/poli/Breadcrumb"
+import { useRouter } from "next/router"
+import Breadcrumb from "@/components/dashboard/poli/Breadcrumb"
 
-// import PatientInfoCard from "@/components/dashboard/patien-detail/PatientInfoCard"
-// import TindakanAccordion from "@/components/dashboard/patien-detail/TindakanAccordion"
+import PatientInfoCard from "@/components/dashboard/patien-detail/PatientInfoCard"
+import TindakanAccordion from "@/components/dashboard/patien-detail/TindakanAccordion"
 
-// import { MASTER_PATIENTS } from "@/lib/dummy/master/patients"
-// import { HISTORY_PD_VISITS } from "@/lib/dummy/poli/penyakit-dalam/history"
+import { MASTER_PATIENTS } from "@/lib/dummy/master/patients"
+import { TODAY_PD_VISITS } from "@/lib/dummy/poli/penyakit-dalam/today"
 
-// export default function KunjunganDetailPage() {
-//   const router = useRouter()
-//   const { poliSlug, pasienId, id } = router.query
+export default function KunjunganDetailPage() {
+    const router = useRouter()
+    const { poliSlug, pasienId, id } = router.query
 
-//   if (!poliSlug || !pasienId || !id) return null
+    if (!poliSlug || !pasienId || !id) return null
 
-//   const patient = MASTER_PATIENTS.find(p => p.id === pasienId)
-//   const tindakan = HISTORY_PD_VISITS.find(t => t.idPasien === pasienId && t.id === id)
+    const patient = MASTER_PATIENTS.find(p => p.id === pasienId)
+    // Find by noRegistrasi since PatientVisit type doesn't have 'id' property
+    const tindakan = TODAY_PD_VISITS.find(t => t.noRegistrasi === id || t.idPasien === pasienId)
 
-//   return (
-//     <div className="min-h-screen bg-gray-50 p-6">
+    // Get patient name from MASTER_PATIENTS or fallback to visit data
+    const patientName = patient?.nama || tindakan?.nama || "Pasien"
 
-//       <Breadcrumb
-//         items={[
-//           { label: `Poli ${poliSlug}`, href: `/poliklinik/${poliSlug}` },
-//           { label: patient?.nama ?? "Pasien", href: `/poliklinik/${poliSlug}/pasien/${pasienId}` },
-//           { label: "Detail Tindakan", href: "" },
-//         ]}
-//       />
+    return (
+        <div className="min-h-screen bg-gray-50 p-6">
 
-//       <PatientInfoCard patient={patient} />
+            <Breadcrumb
+                items={[
+                    { label: "Dashboard", href: `/poliklinik/${poliSlug}` },
+                    { label: patientName, href: `/poliklinik/${poliSlug}/${pasienId}` },
+                    { label: "Detail Tindakan" },
+                ]}
+            />
 
-//       <div className="mt-6">
-//         <TindakanAccordion tindakan={tindakan} />
-//       </div>
-//     </div>
-//   )
-// }
+            <PatientInfoCard patient={patient} />
+
+            <div className="mt-6">
+                <TindakanAccordion tindakan={tindakan} />
+            </div>
+        </div>
+    )
+}
