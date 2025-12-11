@@ -1,13 +1,16 @@
 export interface PatientVisit {
-  idPasien: string
-  nrm: string
-  nama: string
-  jenisKelamin: "L" | "P"
+  id: string
+  no_reg: string
+  status: "menunggu" | "selesai"
+  created_at: string
 
-  noAntrian: string
-  noRegistrasi: string
-  tanggalKunjungan: string
+  patients: {
+    nrm: string
+    nama: string
+    jk: string
+  }
 
-  poli: string
-  status: "waiting" | "completed"
+  poli?: {
+    nama: string
+  }
 }

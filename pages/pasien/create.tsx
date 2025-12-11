@@ -12,16 +12,27 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  fetchProvinces,
-  fetchCitiesByProvince,
-  fetchDistrictsByCity,
-  fetchVillagesByDistrict,
-} from '@/lib/api-client';
-import type { Province } from '@/pages/api/provinces';
-import type { City } from '@/pages/api/cities';
-import type { District } from '@/pages/api/districts';
-import type { Village } from '@/pages/api/villages';
+
+interface Province {
+  code: string;
+  name: string;
+}
+
+interface City {
+  code: string;
+  name: string;
+}
+
+interface District {
+  code: string;
+  name: string;
+}
+
+interface Village {
+  code: string;
+  name: string;
+  postal_code: string;
+}
 
 export default function CreatePatientPage() {
   const router = useRouter();
@@ -68,8 +79,26 @@ export default function CreatePatientPage() {
   // Load provinces on mount
   useEffect(() => {
     const loadProvinces = async () => {
-      const data = await fetchProvinces();
-      setProvinces(data);
+      try {
+        console.log('Loading provinces...');
+        const response = await fetch('/api/wilayah/provinces');
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Provinces data:', data);
+        
+        // Convert object to array if needed
+        const provincesArray = Array.isArray(data) ? data : Object.values(data || {});
+        console.log('Provinces array:', provincesArray);
+        
+        setProvinces(provincesArray);
+      } catch (error) {
+        console.error('Error loading provinces:', error);
+      }
     };
     loadProvinces();
   }, []);
@@ -78,11 +107,17 @@ export default function CreatePatientPage() {
   useEffect(() => {
     if (formData.provinsi) {
       const loadCities = async () => {
-        const data = await fetchCitiesByProvince(formData.provinsi);
-        setCities(data);
-        setFormData((prev) => ({ ...prev, kabupaten: '', kecamatan: '', kodePos: '' }));
-        setDistricts([]);
-        setVillages([]);
+        try {
+          const response = await fetch(`/api/wilayah/cities?code=${formData.provinsi}`);
+          const data = await response.json();
+          const citiesArray = Array.isArray(data) ? data : Object.values(data);
+          setCities(citiesArray);
+          setFormData((prev) => ({ ...prev, kabupaten: '', kecamatan: '', kodePos: '' }));
+          setDistricts([]);
+          setVillages([]);
+        } catch (error) {
+          console.error('Error loading cities:', error);
+        }
       };
       loadCities();
     }
@@ -92,10 +127,16 @@ export default function CreatePatientPage() {
   useEffect(() => {
     if (formData.kabupaten) {
       const loadDistricts = async () => {
-        const data = await fetchDistrictsByCity(formData.kabupaten);
-        setDistricts(data);
-        setFormData((prev) => ({ ...prev, kecamatan: '', kodePos: '' }));
-        setVillages([]);
+        try {
+          const response = await fetch(`/api/wilayah/districts?code=${formData.kabupaten}`);
+          const data = await response.json();
+          const districtsArray = Array.isArray(data) ? data : Object.values(data);
+          setDistricts(districtsArray);
+          setFormData((prev) => ({ ...prev, kecamatan: '', kodePos: '' }));
+          setVillages([]);
+        } catch (error) {
+          console.error('Error loading districts:', error);
+        }
       };
       loadDistricts();
     }
@@ -105,8 +146,14 @@ export default function CreatePatientPage() {
   useEffect(() => {
     if (formData.kecamatan) {
       const loadVillages = async () => {
-        const data = await fetchVillagesByDistrict(formData.kecamatan);
-        setVillages(data);
+        try {
+          const response = await fetch(`/api/wilayah/villages?code=${formData.kecamatan}`);
+          const data = await response.json();
+          const villagesArray = Array.isArray(data) ? data : Object.values(data);
+          setVillages(villagesArray);
+        } catch (error) {
+          console.error('Error loading villages:', error);
+        }
       };
       loadVillages();
     }
@@ -413,7 +460,7 @@ export default function CreatePatientPage() {
                       >
                         <option value="">Pilih provinsi</option>
                         {provinces.map((prov) => (
-                          <option key={prov.id} value={prov.id}>
+                          <option key={prov.code} value={prov.code}>
                             {prov.name}
                           </option>
                         ))}
@@ -432,7 +479,7 @@ export default function CreatePatientPage() {
                       >
                         <option value="">Pilih kabupaten/kota</option>
                         {cities.map((city) => (
-                          <option key={city.id} value={city.id}>
+                          <option key={city.code} value={city.code}>
                             {city.name}
                           </option>
                         ))}
@@ -455,7 +502,7 @@ export default function CreatePatientPage() {
                       >
                         <option value="">Pilih kecamatan</option>
                         {districts.map((district) => (
-                          <option key={district.id} value={district.id}>
+                          <option key={district.code} value={district.code}>
                             {district.name}
                           </option>
                         ))}
