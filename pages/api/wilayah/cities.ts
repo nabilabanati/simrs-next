@@ -1,42 +1,38 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from "next";
+import { withAuth } from "@/lib/api/withAuth";
+import { withRoles, ROLES } from "@/lib/api/role";
+import { ok, fail } from "@/lib/api/respond";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+const ROLES_ALLOWED = [
+  ROLES.SUPERADMIN,
+  ROLES.ADMIN,
+  ROLES.LOKET,
+  ROLES.DOKTER,
+  ROLES.NURSE,
+];
 
-  const { code } = req.query;
+async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "GET") return fail(res, "Method not allowed", 405);
 
-  if (!code) {
-    return res.status(400).json({ error: 'Province code is required' });
-  }
+  const code = req.query.code as string;
+  if (!code) return fail(res, "Province code is required", 400);
 
   try {
     const response = await fetch(`https://wilayah.id/api/regencies/${code}.json`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch: ${response.statusText}`);
-    }
+    if (!response.ok) return fail(res, "Failed to fetch cities", 500);
+
     const result = await response.json();
-    
-    // Extract the data array from the nested response structure
-    const data = result.data || result;
-    let citiesArray: any[] = [];
-    
-    if (Array.isArray(data)) {
-      citiesArray = data;
-    } else if (typeof data === 'object') {
-      citiesArray = Object.entries(data).map(([key, value]: [string, any]) => {
-        if (typeof value === 'string') {
-          return { code: key, name: value };
-        }
-        return { code: value.code || key, name: value.name || value };
-      });
-    }
-    
-    console.log('Cities data:', citiesArray.slice(0, 3)); // Log first 3 items
-    res.status(200).json(citiesArray);
-  } catch (error) {
-    console.error('Error fetching cities:', error);
-    res.status(500).json({ error: 'Failed to fetch cities' });
+
+    const cities = Object.entries(result.data ?? {}).map(([code, name]) => ({
+      code,
+      name,
+    }));
+
+    return ok(res, cities);
+  } catch (err) {
+    console.error("Error fetching cities:", err);
+    return fail(res, "Failed to fetch cities", 500);
   }
 }
+
+export default withAuth(withRoles(ROLES_ALLOWED, handler));
