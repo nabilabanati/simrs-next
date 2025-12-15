@@ -1,24 +1,30 @@
-// pages/api/queue/current.ts
-import type { NextApiRequest, NextApiResponse } from "next";
-import { withAuth } from "@/lib/api/withAuth";
-import { withRoles, ROLES } from "@/lib/api/role";
-import { supabaseServer } from "@/lib/supabase/server";
-import { ok, fail } from "@/lib/api/respond";
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { supabaseServer } from '@/lib/supabase/server';
 
-const ALLOWED = [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.LOKET];
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const loket = (req.query.loket as string) || null;
-  if (!loket) return fail(res, "loket required", 400);
+  try {
+    const { data, error } = await supabaseServer
+      .from('queue_counters')
+      .select('*')
+      .order('loket_nama', { ascending: true });
 
-  const { data, error } = await supabaseServer
-    .from("queue_counters")
-    .select("*")
-    .eq("loket_nama", loket)
-    .single();
+    if (error) throw error;
 
-  if (error) return fail(res, error.message);
-  return ok(res, data);
+    return res.status(200).json({
+      counters: data || [],
+    });
+  } catch (error: any) {
+    console.error('Error fetching queue:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch queue',
+      message: error?.message || 'Unknown error',
+    });
+  }
 }
-
-export default withAuth(withRoles(ALLOWED, handler));

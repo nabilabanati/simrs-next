@@ -1,28 +1,61 @@
-import type { NextApiRequest, NextApiResponse } from "next";
-import { withAuth } from "@/lib/api/withAuth";
-import { withRoles, ROLES } from "@/lib/api/role";
-import { ok, fail } from "@/lib/api/respond";
-import { supabaseServer } from "@/lib/supabase/server";
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { supabaseServer } from '@/lib/supabase/server';
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "GET") return fail(res, "Method not allowed", 405);
-
-  const medicine_id = req.query.medicine_id as string;
-
-  if (!medicine_id) {
-    return fail(res, "medicine_id is required", 400);
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { data, error } = await supabaseServer
-    .from("medicine_stock")
-    .select("medicine_id, lokasi, qty, updated_at")
-    .eq("medicine_id", medicine_id);
+  try {
+    // Get all medicines with their stock
+    const { data, error } = await supabaseServer
+      .from('medicines')
+      .select(`
+        id,
+        kode,
+        nama,
+        harga,
+        created_at,
+        medicine_stock (
+          id,
+          lokasi,
+          qty,
+          updated_at
+        )
+      `)
+      .order('nama', { ascending: true });
 
-  if (error) return fail(res, error.message, 500);
+    if (error) throw error;
 
-  return ok(res, data ?? []);
+    // Calculate total stock for each medicine
+    const medicinesWithStock = (data || []).map((medicine: any) => {
+      const totalStock = medicine.medicine_stock?.reduce(
+        (sum: number, stock: any) => sum + (stock.qty || 0),
+        0
+      ) || 0;
+
+      return {
+        id: medicine.id,
+        kode: medicine.kode,
+        nama: medicine.nama,
+        harga: medicine.harga,
+        total_stock: totalStock,
+        stock_locations: medicine.medicine_stock || [],
+        is_low_stock: totalStock < 10,
+      };
+    });
+
+    return res.status(200).json({
+      medicines: medicinesWithStock,
+    });
+  } catch (error: any) {
+    console.error('Error fetching stock:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch stock',
+      message: error?.message || 'Unknown error',
+    });
+  }
 }
-
-export default withAuth(
-  withRoles([ROLES.DOKTER, ROLES.FARMASI, ROLES.SUPERADMIN], handler)
-);

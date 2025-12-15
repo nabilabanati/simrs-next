@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/router"
 import { supabase } from "@/lib/supabase"
 
+import DoctorLayout from "@/components/layout/DoctorLayout"
 import DashboardHeader from "@/components/dashboard/poli/DashboardHeader"
 import SummaryCards from "@/components/dashboard/poli/SummaryCards"
 import Breadcrumb from "@/components/dashboard/poli/Breadcrumb"
@@ -179,55 +180,57 @@ export default function DoctorDashboard() {
 
     // ================= RENDER =================
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="p-6">
-                <Breadcrumb
-                    items={[
-                        { label: `Poli ${poliName}` },
-                        { label: "Dashboard Dokter" },
-                    ]}
-                />
+        <DoctorLayout>
+            <div className="min-h-screen bg-gray-50">
+                <div className="p-6">
+                    <Breadcrumb
+                        items={[
+                            { label: `Poli ${poliName}` },
+                            { label: "Dashboard Dokter" },
+                        ]}
+                    />
 
-                <DashboardHeader
-                    doctorName={doctorName}
-                    greeting="Selamat Datang"
-                />
+                    <DashboardHeader
+                        doctorName={doctorName}
+                        greeting="Selamat Datang"
+                    />
 
-                {loading ? (
-                    <div className="text-center py-16 text-gray-500">
-                        Memuat data...
-                    </div>
-                ) : (
-                    <>
-                        <SummaryCards
-                            total={totalToday}
-                            waiting={totalWaiting}
-                            completed={totalCompleted}
-                            loading={loading}
-                        />
-
-                        <div className="mt-8 mb-4 max-w-xs">
-                            <SearchInput
-                                value={query}
-                                onChange={setQuery}
-                                placeholder="Cari No. Reg, NRM, atau Nama Pasien"
-                            />
+                    {loading ? (
+                        <div className="text-center py-16 text-gray-500">
+                            Memuat data...
                         </div>
+                    ) : (
+                        <>
+                            <SummaryCards
+                                total={totalToday}
+                                waiting={totalWaiting}
+                                completed={totalCompleted}
+                                loading={loading}
+                            />
 
-                        <DoctorVisitsTable
-                            visits={paginatedVisits}
-                            currentPage={currentPage}
-                            itemsPerPage={ITEMS_PER_PAGE}
-                        />
+                            <div className="mt-8 mb-4 max-w-xs">
+                                <SearchInput
+                                    value={query}
+                                    onChange={setQuery}
+                                    placeholder="Cari No. Reg, NRM, atau Nama Pasien"
+                                />
+                            </div>
 
-                        <Pagination
-                            currentPage={currentPage}
-                            totalPages={totalPages}
-                            onChange={setCurrentPage}
-                        />
-                    </>
-                )}
+                            <DoctorVisitsTable
+                                visits={paginatedVisits}
+                                currentPage={currentPage}
+                                itemsPerPage={ITEMS_PER_PAGE}
+                            />
+
+                            <Pagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onChange={setCurrentPage}
+                            />
+                        </>
+                    )}
+                </div>
             </div>
-        </div>
+        </DoctorLayout>
     )
 }

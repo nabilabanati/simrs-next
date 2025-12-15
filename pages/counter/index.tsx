@@ -58,6 +58,7 @@ export default function CounterPage() {
 
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showResetModal, setShowResetModal] = useState(false);
     const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
@@ -226,16 +227,45 @@ export default function CounterPage() {
         link.click();
     };
 
+    // Fetch current queue on mount
+    useEffect(() => {
+        const fetchQueue = async () => {
+            try {
+                const response = await fetch('/api/queue/current');
+                const data = await response.json();
+                if (data.counters && data.counters.length > 0) {
+                    const loket1 = data.counters.find((c: any) => c.loket_nama === 'LOKET-1');
+                    if (loket1) {
+                        setCurrentQueue(loket1.current_queue);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching queue:', error);
+            }
+        };
+        fetchQueue();
+    }, []);
+
     // Queue functions
-    const handleCallNext = () => {
-        if (currentQueue >= 50) {
-            alert('Antrian sudah mencapai batas maksimal hari ini.');
-            return;
+    const handleCallNext = async () => {
+        try {
+            const response = await fetch('/api/queue/next', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ loket_nama: 'LOKET-1' }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setCurrentQueue(data.current_queue);
+                announceQueue(data.current_queue);
+                broadcastQueueUpdate(data.current_queue);
+            } else {
+                alert('Gagal memanggil antrian: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error calling next:', error);
+            alert('Terjadi kesalahan saat memanggil antrian');
         }
-        const nextQueue = currentQueue + 1;
-        setCurrentQueue(nextQueue);
-        announceQueue(nextQueue);
-        broadcastQueueUpdate(nextQueue);
     };
 
     const handleRepeatCall = () => {
@@ -248,10 +278,27 @@ export default function CounterPage() {
     };
 
     const handleResetQueue = () => {
-        if (confirm('Yakin ingin reset antrian? Semua data antrian akan dikembalikan ke awal.')) {
-            setCurrentQueue(1);
-            broadcastQueueUpdate(1);
-            alert('Antrian telah direset ke nomor 001.');
+        setShowResetModal(true);
+    };
+
+    const confirmReset = async () => {
+        try {
+            const response = await fetch('/api/queue/reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ loket_nama: 'LOKET-1' }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setCurrentQueue(0);
+                setShowResetModal(false);
+                alert('Antrian telah direset ke nomor 0.');
+            } else {
+                alert('Gagal mereset antrian: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error resetting queue:', error);
+            alert('Terjadi kesalahan saat mereset antrian');
         }
     };
 
@@ -643,6 +690,35 @@ export default function CounterPage() {
                         onClose={() => setShowAddModal(false)}
                         onSave={handleSaveVisit}
                     />
+                )}
+
+                {/* Reset Confirmation Modal */}
+                {showResetModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+                            <h3 className="text-xl font-bold text-gray-900 mb-4">
+                                Konfirmasi Reset Antrian
+                            </h3>
+                            <p className="text-gray-600 mb-6">
+                                Apakah Anda yakin ingin mereset antrian? Antrian akan kembali ke nomor 1.
+                            </p>
+                            <div className="flex gap-3 justify-end">
+                                <Button
+                                    onClick={() => setShowResetModal(false)}
+                                    variant="outline"
+                                    className="px-6"
+                                >
+                                    Batal
+                                </Button>
+                                <Button
+                                    onClick={confirmReset}
+                                    className="px-6 bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                    Ya, Reset
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </CounterLayout>

@@ -7,8 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Package, Plus, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Pill, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Medicine {
@@ -18,13 +17,9 @@ interface Medicine {
     harga: number;
     total_stock: number;
     is_low_stock: boolean;
-    stock_locations: Array<{
-        lokasi: string;
-        qty: number;
-    }>;
 }
 
-export default function StockManagement() {
+export default function MedicineList() {
     const router = useRouter();
     const [medicines, setMedicines] = useState<Medicine[]>([]);
     const [filteredMedicines, setFilteredMedicines] = useState<Medicine[]>([]);
@@ -32,7 +27,7 @@ export default function StockManagement() {
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const fetchStock = async (showRefreshIndicator = false) => {
+    const fetchMedicines = async (showRefreshIndicator = false) => {
         if (showRefreshIndicator) {
             setRefreshing(true);
         }
@@ -45,10 +40,10 @@ export default function StockManagement() {
                 setMedicines(data.medicines || []);
                 setFilteredMedicines(data.medicines || []);
             } else {
-                toast.error('Gagal memuat data stok');
+                toast.error('Gagal memuat data obat');
             }
         } catch (error) {
-            console.error('Error fetching stock:', error);
+            console.error('Error fetching medicines:', error);
             toast.error('Terjadi kesalahan saat memuat data');
         } finally {
             setLoading(false);
@@ -57,7 +52,7 @@ export default function StockManagement() {
     };
 
     useEffect(() => {
-        fetchStock();
+        fetchMedicines();
     }, []);
 
     useEffect(() => {
@@ -73,22 +68,18 @@ export default function StockManagement() {
         }
     }, [searchQuery, medicines]);
 
-    const lowStockCount = medicines.filter((m) => m.is_low_stock).length;
-    const totalMedicines = medicines.length;
-    const totalStock = medicines.reduce((sum, m) => sum + m.total_stock, 0);
-
     return (
         <PharmacyLayout>
             <div className="p-6">
                 <div className="mb-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Manajemen Stok Obat</h1>
-                            <p className="text-gray-600 mt-1">Kelola stok obat di farmasi</p>
+                            <h1 className="text-3xl font-bold text-gray-900">Master Data Obat</h1>
+                            <p className="text-gray-600 mt-1">Kelola data obat</p>
                         </div>
                         <div className="flex gap-2">
                             <Button
-                                onClick={() => fetchStock(true)}
+                                onClick={() => fetchMedicines(true)}
                                 disabled={refreshing}
                                 variant="outline"
                                 className="flex items-center gap-2"
@@ -97,47 +88,22 @@ export default function StockManagement() {
                                 Refresh
                             </Button>
                             <Button
-                                onClick={() => router.push('/pharmacy/stock/add')}
+                                onClick={() => router.push('/pharmacy/medicines/add')}
                                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
                             >
                                 <Plus className="w-4 h-4" />
-                                Tambah Stok
+                                Tambah Obat
                             </Button>
                         </div>
                     </div>
                 </div>
 
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <Card>
-                        <CardContent className="p-6">
-                            <p className="text-sm text-gray-600">Total Jenis Obat</p>
-                            <p className="text-3xl font-bold text-blue-600">{totalMedicines}</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent className="p-6">
-                            <p className="text-sm text-gray-600">Total Stok</p>
-                            <p className="text-3xl font-bold text-green-600">{totalStock}</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent className="p-6">
-                            <p className="text-sm text-gray-600">Stok Rendah</p>
-                            <p className="text-3xl font-bold text-red-600">{lowStockCount}</p>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Stock Table */}
                 <Card>
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <CardTitle className="flex items-center gap-2">
-                                <Package className="w-5 h-5" />
-                                Daftar Stok Obat
+                                <Pill className="w-5 h-5" />
+                                Daftar Obat
                             </CardTitle>
                             <Input
                                 placeholder="Cari obat..."
@@ -152,7 +118,7 @@ export default function StockManagement() {
                             <div className="text-center py-8">Loading...</div>
                         ) : filteredMedicines.length === 0 ? (
                             <div className="text-center py-8 text-gray-500">
-                                {searchQuery ? 'Tidak ada obat yang cocok' : 'Tidak ada data stok'}
+                                {searchQuery ? 'Tidak ada obat yang cocok' : 'Tidak ada data obat'}
                             </div>
                         ) : (
                             <Table>
@@ -161,9 +127,7 @@ export default function StockManagement() {
                                         <TableHead>Kode</TableHead>
                                         <TableHead>Nama Obat</TableHead>
                                         <TableHead>Harga</TableHead>
-                                        <TableHead>Stok Total</TableHead>
-                                        <TableHead>Lokasi</TableHead>
-                                        <TableHead>Status</TableHead>
+                                        <TableHead>Stok</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -176,29 +140,6 @@ export default function StockManagement() {
                                                 <span className={medicine.is_low_stock ? 'text-red-600 font-bold' : ''}>
                                                     {medicine.total_stock}
                                                 </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                {medicine.stock_locations.length > 0 ? (
-                                                    <div className="text-sm">
-                                                        {medicine.stock_locations.map((loc, idx) => (
-                                                            <div key={idx}>
-                                                                {loc.lokasi}: {loc.qty}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    '-'
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {medicine.is_low_stock ? (
-                                                    <Badge className="bg-red-500 flex items-center gap-1 w-fit">
-                                                        <AlertTriangle className="w-3 h-3" />
-                                                        Stok Rendah
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge className="bg-green-500">Normal</Badge>
-                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ))}
