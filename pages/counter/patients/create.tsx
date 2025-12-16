@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ArrowLeft } from 'lucide-react';
 
 interface Province {
   code: string;
@@ -48,6 +49,7 @@ export default function CreatePatientPage() {
 
   // Form states
   const [formData, setFormData] = useState({
+    nrm: '', // Will be auto-generated
     nik: '',
     nama: '',
     tempatLahir: '',
@@ -76,6 +78,50 @@ export default function CreatePatientPage() {
     noRujukan: '',
     catatanKhusus: '',
   });
+
+  // Generate NRM on mount
+  useEffect(() => {
+    const generateNRM = async () => {
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        
+        // Get current year and month
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const yearMonth = `${year}${month}`; // YYYYMM
+        
+        // Count patients with NRM starting with current YYYYMM
+        const { data: existingPatients, error } = await supabase
+          .from('patients')
+          .select('nrm')
+          .like('nrm', `${yearMonth}%`)
+          .order('nrm', { ascending: false })
+          .limit(1);
+        
+        if (error) {
+          console.error('Error counting patients:', error);
+        }
+        
+        // Get next sequence number
+        let sequence = 1;
+        if (existingPatients && existingPatients.length > 0) {
+          const lastNRM = existingPatients[0].nrm;
+          const lastSequence = parseInt(lastNRM.slice(-4));
+          sequence = lastSequence + 1;
+        }
+        
+        // Generate NRM: YYYYMM0001
+        const nrm = `${yearMonth}${String(sequence).padStart(4, '0')}`;
+        
+        setFormData(prev => ({ ...prev, nrm }));
+      } catch (error) {
+        console.error('Error generating NRM:', error);
+      }
+    };
+    
+    generateNRM();
+  }, []);
 
   // Load provinces on mount
   useEffect(() => {
@@ -169,6 +215,7 @@ export default function CreatePatientPage() {
 
       // 1. Insert patient data (without penjamin)
       const patientData: any = {
+        nrm: formData.nrm, // Auto-generated NRM
         nik: formData.nik,
         nama: formData.nama,
         tempat_lahir: formData.tempatLahir,
@@ -274,12 +321,27 @@ export default function CreatePatientPage() {
 
   return (
     <CounterLayout>
-      <div className="min-h-screen bg-gray-50 p-4 lg:p-6">
-        <div className="max-w-6xl mx-auto">
-          <Card className="border border-gray-200">
-            <CardHeader className="border-b border-gray-200">
-              <CardTitle className="text-2xl text-gray-800">DATA PASIEN</CardTitle>
-            </CardHeader>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => router.push('/counter/patients')}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Kembali
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-blue-600 uppercase">Tambah Data Pasien</h1>
+            <p className="text-gray-600 mt-1">Daftarkan pasien baru</p>
+          </div>
+        </div>
+
+        {/* Form */}
+        <Card>
+          <CardHeader className="bg-blue-50">
+            <CardTitle>Informasi Pasien</CardTitle>
+          </CardHeader>
 
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -294,10 +356,10 @@ export default function CreatePatientPage() {
                       <Input
                         id="nrm"
                         name="nrm"
-                        value=""
+                        value={formData.nrm}
                         readOnly
                         placeholder="Akan di-generate otomatis"
-                        className="bg-gray-100 text-gray-500 cursor-not-allowed"
+                        className="bg-gray-100 text-gray-700 cursor-not-allowed font-medium"
                       />
                     </div>
 
@@ -718,19 +780,21 @@ export default function CreatePatientPage() {
                       </select>
                     </div>
 
-                    {/* No. Rujukan */}
-                    <div>
-                      <Label htmlFor="noRujukan" className="text-sm font-medium">
-                        No. Rujukan
-                      </Label>
-                      <Input
-                        id="noRujukan"
-                        name="noRujukan"
-                        value={formData.noRujukan}
-                        onChange={handleInputChange}
-                        placeholder="Contoh: 1234567890123"
-                      />
-                    </div>
+                    {/* No. Rujukan - Only show when Rujukan selected */}
+                    {formData.caraMasuk === 'Rujukan' && (
+                      <div>
+                        <Label htmlFor="noRujukan" className="text-sm font-medium">
+                          No. Rujukan
+                        </Label>
+                        <Input
+                          id="noRujukan"
+                          name="noRujukan"
+                          value={formData.noRujukan}
+                          onChange={handleInputChange}
+                          placeholder="Contoh: 1234567890123"
+                        />
+                      </div>
+                    )}
 
                     {/* Catatan Khusus */}
                     <div>
@@ -769,7 +833,6 @@ export default function CreatePatientPage() {
               </form>
             </CardContent>
           </Card>
-        </div>
 
         {/* Success Modal */}
         {showSuccessModal && (

@@ -1,62 +1,101 @@
-import type { Clinic } from '@/pages/api/clinics';
-import type { Doctor } from '@/pages/api/doctors';
-import type { PaymentMethod } from '@/pages/api/payment-methods';
-import type { Province } from '@/pages/api/provinces';
-import type { City } from '@/pages/api/cities';
-import type { District } from '@/pages/api/districts';
-import type { Village } from '@/pages/api/villages';
+// Interfaces for API responses
+export interface Poli {
+  id: string;
+  name: string;
+  code: string;
+  harga_daftar: number;
+}
 
-// Fetch clinics
-export async function fetchClinics(): Promise<Clinic[]> {
+export interface Doctor {
+  id: string;
+  name: string;
+  clinic: string;
+  specialization: string;
+}
+
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+}
+
+// Fetch poli (using simple API for dropdown - no auth needed)
+export async function fetchPoli(): Promise<Poli[]> {
   try {
-    const response = await fetch('/api/clinics');
-    if (!response.ok) throw new Error('Failed to fetch clinics');
-    const data = await response.json();
-    return data.data || [];
+    const response = await fetch('/api/poli');
+    if (!response.ok) {
+      console.error('Fetch poli failed:', response.status, response.statusText);
+      throw new Error('Failed to fetch poli');
+    }
+    const result = await response.json();
+    return result.data || [];
   } catch (error) {
-    console.error('Error fetching clinics:', error);
+    console.error('Error fetching poli:', error);
     return [];
   }
 }
 
-// Fetch doctors by clinic
-export async function fetchDoctorsByClinic(clinic: string): Promise<Doctor[]> {
-  try {
-    const response = await fetch(`/api/doctors?clinic=${encodeURIComponent(clinic)}`);
-    if (!response.ok) throw new Error('Failed to fetch doctors');
-    const data = await response.json();
-    return data.data || [];
-  } catch (error) {
-    console.error('Error fetching doctors:', error);
-    return [];
-  }
-}
-
-// Fetch all doctors
+// Fetch all doctors from simple API (no auth needed)
 export async function fetchAllDoctors(): Promise<Doctor[]> {
   try {
     const response = await fetch('/api/doctors');
-    if (!response.ok) throw new Error('Failed to fetch doctors');
-    const data = await response.json();
-    return data.data || [];
+    if (!response.ok) {
+      console.error('Fetch doctors failed:', response.status, response.statusText);
+      throw new Error('Failed to fetch doctors');
+    }
+    const result = await response.json();
+    return result.data || [];
   } catch (error) {
     console.error('Error fetching doctors:', error);
     return [];
   }
 }
 
-// Fetch payment methods
+// Fetch doctors by clinic (filter client-side)
+export async function fetchDoctorsByClinic(clinic: string): Promise<Doctor[]> {
+  const allDoctors = await fetchAllDoctors();
+  return allDoctors.filter((doc) => doc.clinic === clinic);
+}
+
+// Fetch payment methods (using simple API for dropdown - no auth needed)
 export async function fetchPaymentMethods(): Promise<PaymentMethod[]> {
   try {
-    const response = await fetch('/api/payment-methods');
-    if (!response.ok) throw new Error('Failed to fetch payment methods');
-    const data = await response.json();
-    return data.data || [];
+    const response = await fetch('/api/penjamin');
+    if (!response.ok) {
+      console.error('Fetch payment methods failed:', response.status, response.statusText);
+      throw new Error('Failed to fetch payment methods');
+    }
+    const result = await response.json();
+    return result.data || [];
   } catch (error) {
     console.error('Error fetching payment methods:', error);
     return [];
   }
 }
+
+// Region API types
+export interface Province {
+  code: string;
+  name: string;
+}
+
+export interface City {
+  code: string;
+  name: string;
+}
+
+export interface District {
+  code: string;
+  name: string;
+}
+
+export interface Village {
+  code: string;
+  name: string;
+  postal_code: string;
+}
+
 
 // Fetch provinces
 export async function fetchProvinces(): Promise<Province[]> {

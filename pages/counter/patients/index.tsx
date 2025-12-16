@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Download, Eye, Pencil } from 'lucide-react';
+import { Plus, Search, Download, Eye, Pencil, Printer } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -134,13 +134,10 @@ export default function PatientsListPage() {
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Data Pasien</h1>
-                        <p className="text-gray-600 mt-1">Kelola data pasien rumah sakit</p>
-                    </div>
+                    <h1 className="text-2xl font-bold text-blue-600 uppercase">Data Pasien</h1>
                     <Button
                         onClick={() => router.push('/counter/patients/create')}
-                        className="bg-purple-600 hover:bg-purple-700"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                         <Plus className="w-4 h-4 mr-2" />
                         Tambah Pasien
@@ -164,22 +161,16 @@ export default function PatientsListPage() {
                                     className="pl-10"
                                 />
                             </div>
-                            <Button onClick={handleSearch} className="bg-green-600 hover:bg-green-700">
+                            <Button onClick={handleSearch} className="bg-blue-600 hover:bg-blue-700 text-white">
                                 Cari
                             </Button>
                             <Button onClick={handleReset} variant="outline">
                                 Reset
                             </Button>
-                            <div className="flex gap-2">
-                                <Button onClick={exportToCSV} variant="outline" size="sm">
-                                    <Download className="w-4 h-4 mr-1" />
-                                    CSV
-                                </Button>
-                                <Button onClick={exportToExcel} variant="outline" size="sm">
-                                    <Download className="w-4 h-4 mr-1" />
-                                    Excel
-                                </Button>
-                            </div>
+                            <Button onClick={exportToExcel} variant="outline" size="sm">
+                                <Download className="w-4 h-4 mr-1" />
+                                Excel
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
@@ -192,16 +183,16 @@ export default function PatientsListPage() {
                     <CardContent>
                         <div className="border rounded-lg overflow-hidden">
                             <Table>
-                                <TableHeader className="bg-purple-50">
+                                <TableHeader className="bg-blue-50">
                                     <TableRow>
-                                        <TableHead className="font-bold">NO</TableHead>
-                                        <TableHead className="font-bold">NRM</TableHead>
-                                        <TableHead className="font-bold">NIK</TableHead>
-                                        <TableHead className="font-bold">NAMA</TableHead>
-                                        <TableHead className="font-bold">JENIS KELAMIN</TableHead>
-                                        <TableHead className="font-bold">TGL LAHIR</TableHead>
-                                        <TableHead className="font-bold">ALAMAT</TableHead>
-                                        <TableHead className="font-bold">AKSI</TableHead>
+                                        <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">NO</TableHead>
+                                        <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">NRM</TableHead>
+                                        <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">NIK</TableHead>
+                                        <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">NAMA</TableHead>
+                                        <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">JENIS KELAMIN</TableHead>
+                                        <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">TGL LAHIR</TableHead>
+                                        <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">ALAMAT</TableHead>
+                                        <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase text-center">AKSI</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -220,25 +211,26 @@ export default function PatientsListPage() {
                                     ) : (
                                         filteredData.map((patient, idx) => (
                                             <TableRow key={patient.id}>
-                                                <TableCell>{idx + 1}</TableCell>
-                                                <TableCell className="font-medium">{patient.nrm}</TableCell>
-                                                <TableCell>{patient.nik}</TableCell>
-                                                <TableCell>{patient.nama}</TableCell>
-                                                <TableCell>
-                                                    {patient.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}
+                                                <TableCell className="px-6 py-4 text-center">{idx + 1}</TableCell>
+                                                <TableCell className="px-6 py-4 font-medium">{patient.nrm}</TableCell>
+                                                <TableCell className="px-6 py-4">{patient.nik}</TableCell>
+                                                <TableCell className="px-6 py-4">{patient.nama}</TableCell>
+                                                <TableCell className="px-6 py-4 text-center">
+                                                    {patient.jenis_kelamin === 'L' ? 'L' : 'P'}
                                                 </TableCell>
-                                                <TableCell>
+                                                <TableCell className="px-6 py-4">
                                                     {patient.tanggal_lahir ? new Date(patient.tanggal_lahir).toLocaleDateString('id-ID') : '-'}
                                                 </TableCell>
-                                                <TableCell className="max-w-xs truncate">
+                                                <TableCell className="px-6 py-4 max-w-xs truncate">
                                                     {patient.alamat || '-'}
                                                 </TableCell>
-                                                <TableCell>
-                                                    <div className="flex gap-2">
+                                                <TableCell className="px-6 py-4 text-center">
+                                                    <div className="flex gap-2 justify-center">
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
                                                             onClick={() => router.push(`/counter/patients/detail/${patient.id}`)}
+                                                            title="Lihat Detail"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </Button>
@@ -246,8 +238,134 @@ export default function PatientsListPage() {
                                                             size="sm"
                                                             variant="outline"
                                                             onClick={() => router.push(`/counter/patients/edit/${patient.id}`)}
+                                                            title="Edit"
                                                         >
                                                             <Pencil className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="text-blue-600 hover:text-blue-700"
+                                                            onClick={() => {
+                                                                const printWindow = window.open('', '', 'width=800,height=600');
+                                                                if (printWindow) {
+                                                                    printWindow.document.write(`
+                                                                        <html>
+                                                                        <head>
+                                                                            <title>Identitas Pasien - ${patient.nrm}</title>
+                                                                            <style>
+                                                                                @page { size: A6 landscape; margin: 5mm; }
+                                                                                body { font-family: Arial, sans-serif; margin: 0; padding: 10px; }
+                                                                                .card { border: 4px solid #2563eb; border-radius: 8px; padding: 15px; max-width: 148mm; height: auto; }
+                                                                                .header { text-align: center; border-bottom: 4px solid #2563eb; padding-bottom: 8px; margin-bottom: 12px; }
+                                                                                .header h1 { color: #2563eb; margin: 0; font-size: 20px; text-transform: uppercase; }
+                                                                                .header p { margin: 3px 0 0 0; font-size: 11px; color: #666; }
+                                                                                .content { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+                                                                                .section { margin-bottom: 10px; }
+                                                                                .section-title { font-size: 11px; color: #2563eb; font-weight: bold; border-bottom: 2px solid #2563eb; padding-bottom: 3px; margin-bottom: 8px; text-transform: uppercase; }
+                                                                                .field { margin-bottom: 6px; }
+                                                                                .field label { font-size: 9px; color: #666; text-transform: uppercase; display: block; margin-bottom: 1px; }
+                                                                                .field p { font-size: 11px; font-weight: bold; margin: 0; }
+                                                                                .nrm { font-size: 20px; color: #2563eb; }
+                                                                                .full-width { grid-column: 1 / -1; }
+                                                                                .footer { text-align: center; margin-top: 10px; padding-top: 8px; border-top: 2px solid #2563eb; font-size: 9px; color: #999; }
+                                                                            </style>
+                                                                        </head>
+                                                                        <body>
+                                                                            <div class="card">
+                                                                                <div class="header">
+                                                                                    <h1>Kartu Identitas Pasien</h1>
+                                                                                    <p>Rumah Sakit</p>
+                                                                                </div>
+                                                                                <div class="content">
+                                                                                    <!-- Left Column -->
+                                                                                    <div>
+                                                                                        <div class="section">
+                                                                                            <div class="section-title">Data Pribadi</div>
+                                                                                            <div class="field">
+                                                                                                <label>No. Rekam Medis</label>
+                                                                                                <p class="nrm">${patient.nrm}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>NIK</label>
+                                                                                                <p>${patient.nik || '-'}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>Nama Lengkap</label>
+                                                                                                <p>${patient.nama.toUpperCase()}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>Jenis Kelamin</label>
+                                                                                                <p>${patient.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>Tempat, Tanggal Lahir</label>
+                                                                                                <p>${patient.tempat_lahir || '-'}, ${patient.tanggal_lahir ? new Date(patient.tanggal_lahir).toLocaleDateString('id-ID') : '-'}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>Golongan Darah</label>
+                                                                                                <p>${patient.golongan_darah || '-'}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>Pekerjaan</label>
+                                                                                                <p>${patient.pekerjaan || '-'}</p>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    
+                                                                                    <!-- Right Column -->
+                                                                                    <div>
+                                                                                        <div class="section">
+                                                                                            <div class="section-title">Kontak & Alamat</div>
+                                                                                            <div class="field">
+                                                                                                <label>No. Telepon</label>
+                                                                                                <p>${patient.no_hp || '-'}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>Email</label>
+                                                                                                <p>${patient.email || '-'}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>Alamat</label>
+                                                                                                <p>${patient.alamat || '-'}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>Kode Pos</label>
+                                                                                                <p>${patient.kode_pos || '-'}</p>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        
+                                                                                        <div class="section">
+                                                                                            <div class="section-title">Penanggung Jawab</div>
+                                                                                            <div class="field">
+                                                                                                <label>Nama</label>
+                                                                                                <p>${patient.nama_pj || '-'}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>Hubungan</label>
+                                                                                                <p>${patient.penanggung_jawab || '-'}</p>
+                                                                                            </div>
+                                                                                            <div class="field">
+                                                                                                <label>No. Telepon PJ</label>
+                                                                                                <p>${patient.no_hp_pj || '-'}</p>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div class="footer">
+                                                                                    Dicetak: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} | ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                                                                </div>
+                                                                            </div>
+                                                                        </body>
+                                                                        </html>
+                                                                    `);
+                                                                    printWindow.document.close();
+                                                                    printWindow.print();
+                                                                }
+                                                            }}
+                                                            title="Print Identitas"
+                                                        >
+                                                            <Printer className="w-4 h-4" />
                                                         </Button>
                                                     </div>
                                                 </TableCell>

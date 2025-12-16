@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import * as jwt from "jsonwebtoken";
+import { jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
+const JWT_SECRET = new TextEncoder().encode(
+    process.env.JWT_SECRET || "dev-secret"
+);
 
 // Define route permissions
 const ROUTE_PERMISSIONS: Record<string, string[]> = {
@@ -19,7 +21,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ["/login", "/register", "/", "/api/auth/login", "/api/auth/logout"];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Allow public routes
@@ -46,8 +48,10 @@ export function middleware(request: NextRequest) {
     }
 
     try {
-        // Verify JWT token
-        const decoded = jwt.verify(token, JWT_SECRET) as {
+        // Verify JWT token using jose
+        const { payload } = await jwtVerify(token, JWT_SECRET);
+        
+        const decoded = payload as {
             id: string;
             role: string;
             username: string;

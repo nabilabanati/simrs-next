@@ -17,11 +17,40 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface Province {
+    code: string;
+    name: string;
+}
+
+interface City {
+    code: string;
+    name: string;
+}
+
+interface District {
+    code: string;
+    name: string;
+}
+
+interface Village {
+    code: string;
+    name: string;
+}
+
 export default function EditPatientPage() {
     const router = useRouter();
     const { id } = router.query;
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [penjaminType, setPenjaminType] = useState('');
+    const [penjaminId, setPenjaminId] = useState<string | null>(null);
+    
+    // Region data
+    const [provinces, setProvinces] = useState<Province[]>([]);
+    const [cities, setCities] = useState<City[]>([]);
+    const [districts, setDistricts] = useState<District[]>([]);
+    const [villages, setVillages] = useState<Village[]>([]);
+    
     const [formData, setFormData] = useState({
         nrm: '',
         nik: '',
@@ -36,19 +65,88 @@ export default function EditPatientPage() {
         pekerjaan_pj: '',
         no_telp_pj: '',
         alamat: '',
-        provinsi: '',
-        kabupaten: '',
-        kecamatan: '',
+        province_id: '',
+        regency_id: '',
+        district_id: '',
+        village_id: '',
         kode_pos: '',
         penjamin: '',
+        nomorBPJS: '',
+        namaAsuransi: '',
+        nomorAsuransi: '',
+        namaInstansi: '',
+        nomorSurat: '',
+        nomorPeserta: '',
         catatan_khusus: '',
     });
+
+    // Load provinces on mount
+    useEffect(() => {
+        const loadProvinces = async () => {
+            try {
+                const response = await fetch('/api/regions/provinces');
+                const data = await response.json();
+                setProvinces(data);
+            } catch (error) {
+                console.error('Error loading provinces:', error);
+            }
+        };
+        loadProvinces();
+    }, []);
 
     useEffect(() => {
         if (id) {
             fetchPatient();
         }
     }, [id]);
+
+    // Load cities when province changes
+    useEffect(() => {
+        if (formData.province_id) {
+            const loadCities = async () => {
+                try {
+                    const response = await fetch(`/api/regions/regencies?province_id=${formData.province_id}`);
+                    const data = await response.json();
+                    setCities(data);
+                } catch (error) {
+                    console.error('Error loading cities:', error);
+                }
+            };
+            loadCities();
+        }
+    }, [formData.province_id]);
+
+    // Load districts when city changes
+    useEffect(() => {
+        if (formData.regency_id) {
+            const loadDistricts = async () => {
+                try {
+                    const response = await fetch(`/api/regions/districts?regency_id=${formData.regency_id}`);
+                    const data = await response.json();
+                    setDistricts(data);
+                } catch (error) {
+                    console.error('Error loading districts:', error);
+                }
+            };
+            loadDistricts();
+        }
+    }, [formData.regency_id]);
+
+    // Load villages when district changes
+    useEffect(() => {
+        if (formData.district_id) {
+            const loadVillages = async () => {
+                try {
+                    const response = await fetch(`/api/regions/villages?district_id=${formData.district_id}`);
+                    const data = await response.json();
+                    setVillages(data);
+                } catch (error) {
+                    console.error('Error loading villages:', error);
+                }
+            };
+            loadVillages();
+        }
+    }, [formData.district_id]);
 
     const fetchPatient = async () => {
         setLoading(true);
@@ -75,19 +173,74 @@ export default function EditPatientPage() {
                 pekerjaan_pj: data.pekerjaan_pj || '',
                 no_telp_pj: data.no_telp_pj || '',
                 alamat: data.alamat || '',
-                provinsi: data.provinsi || '',
-                kabupaten: data.kabupaten || '',
-                kecamatan: data.kecamatan || '',
+                province_id: data.province_id || '',
+                regency_id: data.regency_id || '',
+                district_id: data.district_id || '',
+                village_id: data.village_id || '',
                 kode_pos: data.kode_pos || '',
-                penjamin: data.penjamin || '',
+                penjamin: '',
+                nomorBPJS: '',
+                namaAsuransi: '',
+                nomorAsuransi: '',
+                namaInstansi: '',
+                nomorSurat: '',
+                nomorPeserta: '',
                 catatan_khusus: data.catatan_khusus || '',
             });
+            
+            // Fetch penjamin data
+            await fetchPenjaminData(data.id);
         } catch (error) {
             console.error('Error fetching patient:', error);
             toast.error('Gagal memuat data pasien');
         } finally {
             setLoading(false);
         }
+    };
+
+    const fetchPenjaminData = async (patientId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('patient_penjamin')
+                .select(`
+                    *,
+                    penjamin (
+                        nama,
+                        tipe
+                    )
+                `)
+                .eq('patient_id', patientId)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                console.error('Error fetching penjamin:', error);
+                return;
+            }
+
+            if (data) {
+                setPenjaminId(data.id);
+                const penjaminNama = data.penjamin?.nama || '';
+                setPenjaminType(penjaminNama);
+                
+                setFormData(prev => ({
+                    ...prev,
+                    penjamin: penjaminNama,
+                    nomorBPJS: data.nomor_bpjs || '',
+                    namaAsuransi: data.nama_asuransi || '',
+                    nomorAsuransi: data.nomor_polis || '',
+                    namaInstansi: data.nama_asuransi || '',
+                    nomorSurat: data.nomor_polis || '',
+                    nomorPeserta: data.nomor_polis || '',
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching penjamin:', error);
+        }
+    };
+
+    const handlePenjaminChange = (value: string) => {
+        setPenjaminType(value);
+        setFormData(prev => ({ ...prev, penjamin: value }));
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -100,12 +253,84 @@ export default function EditPatientPage() {
         setSaving(true);
 
         try {
-            const { error } = await supabase
+            // Update patient data
+            const { error: patientError } = await supabase
                 .from('patients')
-                .update(formData)
+                .update({
+                    nik: formData.nik,
+                    nama: formData.nama,
+                    tempat_lahir: formData.tempat_lahir,
+                    tanggal_lahir: formData.tanggal_lahir,
+                    jenis_kelamin: formData.jenis_kelamin,
+                    pekerjaan: formData.pekerjaan,
+                    golongan_darah: formData.golongan_darah,
+                    penanggung_jawab: formData.penanggung_jawab,
+                    nama_pj: formData.nama_pj,
+                    pekerjaan_pj: formData.pekerjaan_pj,
+                    no_telp_pj: formData.no_telp_pj,
+                    alamat: formData.alamat,
+                    province_id: formData.province_id,
+                    regency_id: formData.regency_id,
+                    district_id: formData.district_id,
+                    village_id: formData.village_id,
+                    kode_pos: formData.kode_pos,
+                    catatan_khusus: formData.catatan_khusus,
+                })
                 .eq('id', id);
 
-            if (error) throw error;
+            if (patientError) throw patientError;
+
+            // Handle penjamin update
+            if (formData.penjamin) {
+                // Get or create penjamin
+                const { data: penjaminData, error: penjaminError } = await supabase
+                    .from('penjamin')
+                    .select('id')
+                    .eq('nama', formData.penjamin)
+                    .single();
+
+                let currentPenjaminId = penjaminData?.id;
+
+                if (!currentPenjaminId) {
+                    const { data: newPenjamin } = await supabase
+                        .from('penjamin')
+                        .insert([{ nama: formData.penjamin, tipe: formData.penjamin.toLowerCase() }])
+                        .select()
+                        .single();
+                    currentPenjaminId = newPenjamin?.id;
+                }
+
+                if (currentPenjaminId) {
+                    const patientPenjaminData: any = {
+                        patient_id: id,
+                        penjamin_id: currentPenjaminId,
+                    };
+
+                    if (formData.penjamin === 'BPJS') {
+                        patientPenjaminData.nomor_bpjs = formData.nomorBPJS;
+                    } else if (formData.penjamin === 'Asuransi') {
+                        patientPenjaminData.nama_asuransi = formData.namaAsuransi;
+                        patientPenjaminData.nomor_polis = formData.nomorAsuransi;
+                    } else if (formData.penjamin === 'Instansi') {
+                        patientPenjaminData.nama_asuransi = formData.namaInstansi;
+                        patientPenjaminData.nomor_polis = formData.nomorSurat;
+                    } else if (formData.penjamin === 'Jasa Raharja') {
+                        patientPenjaminData.nomor_polis = formData.nomorPeserta;
+                    }
+
+                    // Update or insert patient_penjamin
+                    if (penjaminId) {
+                        await supabase
+                            .from('patient_penjamin')
+                            .update(patientPenjaminData)
+                            .eq('id', penjaminId);
+                    } else {
+                        await supabase
+                            .from('patient_penjamin')
+                            .insert([patientPenjaminData]);
+                    }
+                }
+            }
 
             toast.success('Data pasien berhasil diupdate');
             router.push('/counter/patients');
@@ -140,14 +365,14 @@ export default function EditPatientPage() {
                         Kembali
                     </Button>
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Edit Data Pasien</h1>
+                        <h1 className="text-3xl font-bold text-blue-600 uppercase">Edit Data Pasien</h1>
                         <p className="text-gray-600 mt-1">Ubah informasi pasien</p>
                     </div>
                 </div>
 
                 {/* Form */}
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="bg-blue-50">
                         <CardTitle>Informasi Pasien</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -278,33 +503,78 @@ export default function EditPatientPage() {
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="provinsi">Provinsi</Label>
-                                        <Input
-                                            id="provinsi"
-                                            name="provinsi"
-                                            value={formData.provinsi}
+                                        <Label htmlFor="province_id">Provinsi</Label>
+                                        <select
+                                            id="province_id"
+                                            name="province_id"
+                                            value={formData.province_id}
                                             onChange={handleInputChange}
-                                        />
+                                            className="w-full px-3 py-2 border rounded-md"
+                                        >
+                                            <option value="">Pilih Provinsi</option>
+                                            {provinces.map((prov) => (
+                                                <option key={prov.code} value={prov.code}>
+                                                    {prov.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="kabupaten">Kabupaten/Kota</Label>
-                                        <Input
-                                            id="kabupaten"
-                                            name="kabupaten"
-                                            value={formData.kabupaten}
+                                        <Label htmlFor="regency_id">Kabupaten/Kota</Label>
+                                        <select
+                                            id="regency_id"
+                                            name="regency_id"
+                                            value={formData.regency_id}
                                             onChange={handleInputChange}
-                                        />
+                                            disabled={!formData.province_id}
+                                            className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
+                                        >
+                                            <option value="">Pilih Kabupaten/Kota</option>
+                                            {cities.map((city) => (
+                                                <option key={city.code} value={city.code}>
+                                                    {city.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="kecamatan">Kecamatan</Label>
-                                        <Input
-                                            id="kecamatan"
-                                            name="kecamatan"
-                                            value={formData.kecamatan}
+                                        <Label htmlFor="district_id">Kecamatan</Label>
+                                        <select
+                                            id="district_id"
+                                            name="district_id"
+                                            value={formData.district_id}
                                             onChange={handleInputChange}
-                                        />
+                                            disabled={!formData.regency_id}
+                                            className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
+                                        >
+                                            <option value="">Pilih Kecamatan</option>
+                                            {districts.map((district) => (
+                                                <option key={district.code} value={district.code}>
+                                                    {district.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="village_id">Desa/Kelurahan</Label>
+                                        <select
+                                            id="village_id"
+                                            name="village_id"
+                                            value={formData.village_id}
+                                            onChange={handleInputChange}
+                                            disabled={!formData.district_id}
+                                            className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
+                                        >
+                                            <option value="">Pilih Desa/Kelurahan</option>
+                                            {villages.map((village) => (
+                                                <option key={village.code} value={village.code}>
+                                                    {village.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     <div>
@@ -343,15 +613,97 @@ export default function EditPatientPage() {
                                             id="penjamin"
                                             name="penjamin"
                                             value={formData.penjamin}
-                                            onChange={handleInputChange}
+                                            onChange={(e) => handlePenjaminChange(e.target.value)}
                                             className="w-full px-3 py-2 border rounded-md"
                                         >
-                                            <option value="">Pilih</option>
+                                            <option value="">Pilih Penjamin</option>
                                             <option value="UMUM">UMUM</option>
                                             <option value="BPJS">BPJS</option>
                                             <option value="Asuransi">Asuransi</option>
+                                            <option value="Instansi">Instansi</option>
+                                            <option value="Jasa Raharja">Jasa Raharja</option>
                                         </select>
                                     </div>
+
+                                    {/* BPJS Fields */}
+                                    {penjaminType === 'BPJS' && (
+                                        <div>
+                                            <Label htmlFor="nomorBPJS">Nomor BPJS</Label>
+                                            <Input
+                                                id="nomorBPJS"
+                                                name="nomorBPJS"
+                                                value={formData.nomorBPJS}
+                                                onChange={handleInputChange}
+                                                placeholder="Masukkan No. BPJS"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Asuransi Fields */}
+                                    {penjaminType === 'Asuransi' && (
+                                        <>
+                                            <div>
+                                                <Label htmlFor="namaAsuransi">Nama Asuransi</Label>
+                                                <Input
+                                                    id="namaAsuransi"
+                                                    name="namaAsuransi"
+                                                    value={formData.namaAsuransi}
+                                                    onChange={handleInputChange}
+                                                    placeholder="Masukkan Nama Asuransi"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="nomorAsuransi">Nomor Polis</Label>
+                                                <Input
+                                                    id="nomorAsuransi"
+                                                    name="nomorAsuransi"
+                                                    value={formData.nomorAsuransi}
+                                                    onChange={handleInputChange}
+                                                    placeholder="Masukkan Nomor Polis"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Instansi Fields */}
+                                    {penjaminType === 'Instansi' && (
+                                        <>
+                                            <div>
+                                                <Label htmlFor="namaInstansi">Nama Instansi</Label>
+                                                <Input
+                                                    id="namaInstansi"
+                                                    name="namaInstansi"
+                                                    value={formData.namaInstansi}
+                                                    onChange={handleInputChange}
+                                                    placeholder="Masukkan Nama Instansi"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="nomorSurat">Nomor Surat Penjamin</Label>
+                                                <Input
+                                                    id="nomorSurat"
+                                                    name="nomorSurat"
+                                                    value={formData.nomorSurat}
+                                                    onChange={handleInputChange}
+                                                    placeholder="Masukkan Nomor Surat"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Jasa Raharja Fields */}
+                                    {penjaminType === 'Jasa Raharja' && (
+                                        <div>
+                                            <Label htmlFor="nomorPeserta">Nomor Peserta</Label>
+                                            <Input
+                                                id="nomorPeserta"
+                                                name="nomorPeserta"
+                                                value={formData.nomorPeserta}
+                                                onChange={handleInputChange}
+                                                placeholder="Masukkan Nomor Peserta"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -378,7 +730,7 @@ export default function EditPatientPage() {
                                 <Button
                                     type="submit"
                                     disabled={saving}
-                                    className="bg-purple-600 hover:bg-purple-700"
+                                    className="bg-blue-600 hover:bg-blue-700"
                                 >
                                     {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
                                 </Button>
