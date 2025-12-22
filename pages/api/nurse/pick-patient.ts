@@ -25,6 +25,28 @@ export default async function handler(
 
         if (error) throw error;
 
+        // If successful, create a draft triase record to track which nurse is working on it
+        if (data?.success) {
+            await supabaseServer
+                .from('triase')
+                .upsert(
+                    {
+                        visit_id,
+                        perawat_id: nurse_id,
+                        // Empty values - will be filled when nurse submits the form
+                        tensi: '',
+                        nadi: 0,
+                        suhu: 0,
+                        spo2: 0,
+                        resp: 0,
+                        catatan: '',
+                    },
+                    {
+                        onConflict: 'visit_id',
+                    }
+                );
+        }
+
         // The function returns JSON with success and message
         return res.status(200).json(data);
     } catch (error: any) {

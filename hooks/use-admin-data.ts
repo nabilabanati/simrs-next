@@ -19,20 +19,15 @@ export function useAdminData() {
     const fetchStats = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem("token");
 
-            if (!token) {
-                throw new Error("No authentication token");
-            }
-
-            // Fetch all data in parallel
+            // Fetch all data in parallel - token is in HttpOnly cookie
             const [patientsRes, employeesRes, visitsRes, ordersRes, invoicesRes, medicinesRes] = await Promise.all([
-                fetch("/api/patients/search", { headers: { Authorization: `Bearer ${token}` } }),
-                fetch("/api/admin/employees", { headers: { Authorization: `Bearer ${token}` } }),
-                fetch(`/api/visits/list?tanggal=${new Date().toISOString().split("T")[0]}`, { headers: { Authorization: `Bearer ${token}` } }),
-                fetch("/api/pharmacy/orders?status=waiting", { headers: { Authorization: `Bearer ${token}` } }),
-                fetch("/api/admin/invoices?paid=false", { headers: { Authorization: `Bearer ${token}` } }),
-                fetch("/api/master/medicines", { headers: { Authorization: `Bearer ${token}` } }),
+                fetch("/api/patients/search", { credentials: 'include' }),
+                fetch("/api/admin/employees", { credentials: 'include' }),
+                fetch(`/api/visits/list?tanggal=${new Date().toISOString().split("T")[0]}`, { credentials: 'include' }),
+                fetch("/api/pharmacy/orders?status=waiting", { credentials: 'include' }),
+                fetch("/api/admin/invoices?paid=false", { credentials: 'include' }),
+                fetch("/api/master/medicines", { credentials: 'include' }),
             ]);
 
             const [patients, employees, visits, orders, invoices, medicines] = await Promise.all([

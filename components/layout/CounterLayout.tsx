@@ -8,6 +8,7 @@ import {
     LogOut,
     Menu,
     X,
+    Receipt,
 } from "lucide-react";
 
 interface CounterLayoutProps {
@@ -17,6 +18,7 @@ interface CounterLayoutProps {
 const menuItems = [
     { href: "/counter", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/counter/patients", icon: Users, label: "Pasien" },
+    { href: "/cashier/payment-verification", icon: Receipt, label: "Verifikasi Pembayaran" },
 ];
 
 export function CounterLayout({ children }: CounterLayoutProps) {
@@ -64,8 +66,8 @@ export function CounterLayout({ children }: CounterLayoutProps) {
                         <ul className="space-y-2">
                             {menuItems.map((item) => {
                                 const Icon = item.icon;
-                                const isActive = router.pathname === item.href || 
-                                               (item.href === "/counter/patients" && router.pathname.startsWith("/counter/patients"));
+                                const isActive = router.pathname === item.href ||
+                                    (item.href === "/counter/patients" && router.pathname.startsWith("/counter/patients"));
                                 return (
                                     <li key={item.href}>
                                         <Link

@@ -30,34 +30,37 @@ export default function AdminEmployeesPage() {
     const [selectedPoliId, setSelectedPoliId] = useState<string>("");
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
         const user = localStorage.getItem("user");
 
-        if (!token || !user) {
+        if (!user) {
             router.push("/login");
             return;
         }
 
-        const userData = JSON.parse(user);
-        if (userData.role !== "superadmin") {
-            router.push("/login");
-            return;
-        }
+        try {
+            const userData = JSON.parse(user);
+            if (userData.role !== "superadmin") {
+                router.push("/login");
+                return;
+            }
 
-        fetchEmployees();
-        fetchPolis();
+            fetchEmployees();
+            fetchPolis();
+        } catch (error) {
+            console.error("Error parsing user data:", error);
+            router.push("/login");
+        }
     }, [router, roleFilter]);
 
     const fetchEmployees = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
             const url = roleFilter === "all"
                 ? "/api/admin/employees"
                 : `/api/admin/employees?role=${roleFilter}`;
 
             const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: 'include',
             });
             const json = await res.json();
             setEmployees(json.data || []);
@@ -74,13 +77,12 @@ export default function AdminEmployeesPage() {
         }
 
         try {
-            const token = localStorage.getItem("token");
             const res = await fetch("/api/admin/employees", {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
                 },
+                credentials: 'include',
                 body: JSON.stringify({ id: employeeId, action: "toggle-active" }),
             });
 

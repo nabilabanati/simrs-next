@@ -31,6 +31,7 @@ import type { Poli, Doctor, PaymentMethod } from '@/lib/api-client';
 import AddVisitModal from '@/components/modals/add-visit-modal';
 import PatientSearchModal from '@/components/modals/patient-search-modal';
 import QueueTicketModal from '@/components/modals/queue-ticket-modal';
+import { toast } from 'sonner';
 
 export default function CounterPage() {
     const router = useRouter();
@@ -65,6 +66,24 @@ export default function CounterPage() {
     const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
     const [showQueueTicket, setShowQueueTicket] = useState(false);
     const [queueTicketData, setQueueTicketData] = useState<any>(null);
+
+    // Auth check
+    useEffect(() => {
+        const user = localStorage.getItem('user');
+        if (!user) {
+            router.push('/login');
+            return;
+        }
+
+        const userData = JSON.parse(user);
+
+        // Check if user has loket role
+        if (userData.role !== 'loket') {
+            toast.error('Akses ditolak. Anda bukan petugas loket.');
+            router.push('/login');
+            return;
+        }
+    }, [router]);
 
     // Load API data and patients on mount
     useEffect(() => {
@@ -111,9 +130,9 @@ export default function CounterPage() {
                 console.error('Supabase error:', error);
                 throw error;
             }
-            
+
             console.log('Fetched visits:', data); // Debug log
-            
+
             // Get unique doctor user_ids
             const doctorUserIds = [...new Set(
                 (data || [])
@@ -125,7 +144,7 @@ export default function CounterPage() {
 
             // Fetch all doctor names in one query
             let userNameMap = new Map();
-            
+
             if (doctorUserIds.length > 0) {
                 const { data: usersData, error: usersError } = await supabase
                     .from('users')
@@ -133,7 +152,7 @@ export default function CounterPage() {
                     .in('id', doctorUserIds);
 
                 console.log('Fetched users:', usersData); // Debug log
-                
+
                 if (!usersError && usersData) {
                     userNameMap = new Map(
                         usersData.map(u => [u.id, u.nama])
@@ -144,7 +163,7 @@ export default function CounterPage() {
             // Map visits with doctor names
             const visitsWithData = (data || []).map((visit: any) => {
                 let doctorName = '-';
-                
+
                 if (visit.doctors?.user_id) {
                     doctorName = userNameMap.get(visit.doctors.user_id) || `User ID: ${visit.doctors.user_id}`;
                 } else if (visit.dokter_id) {
@@ -180,7 +199,7 @@ export default function CounterPage() {
             // Filter to show only one visit per patient (the latest one)
             const uniqueVisits = visitsWithData.reduce((acc: any[], visit: any) => {
                 const existingIndex = acc.findIndex(v => v.patient_id === visit.patient_id);
-                
+
                 if (existingIndex === -1) {
                     acc.push(visit);
                 } else {
@@ -189,7 +208,7 @@ export default function CounterPage() {
                         acc[existingIndex] = visit;
                     }
                 }
-                
+
                 return acc;
             }, []);
 
@@ -388,9 +407,9 @@ export default function CounterPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ loket_id: selectedLoket }),
             });
-            
+
             const data = await response.json();
-            
+
             if (!response.ok) {
                 if (response.status === 404) {
                     alert(`Tidak ada antrian yang menunggu di Loket ${selectedLoket}`);
@@ -402,13 +421,13 @@ export default function CounterPage() {
 
             // Update current queue
             setCurrentQueue(data.ticket.queue_number);
-            
+
             // Announce via text-to-speech
             announceQueue(data.ticket.queue_number, selectedLoket);
-            
+
             // Broadcast for display page
             broadcastQueueCall(data.ticket);
-            
+
             // Update waiting count
             await fetchWaitingCount();
         } catch (error) {
@@ -462,7 +481,7 @@ export default function CounterPage() {
             setWaitingCount(0);
             setShowResetModal(false);
             alert('Semua antrian di semua loket telah direset.');
-            
+
             // Refresh data
             await fetchWaitingCount();
             await fetchCurrentQueue();
@@ -546,7 +565,7 @@ export default function CounterPage() {
 
             setShowVisitModal(false);
             setSelectedPatient(null);
-            
+
             // Show queue ticket modal
             const queueNumber = visitData.noRegistrasi ? visitData.noRegistrasi.split('-')[2] : '000';
             setQueueTicketData({
@@ -557,7 +576,7 @@ export default function CounterPage() {
                 doctorName: visitData.dokterName,
             });
             setShowQueueTicket(true);
-            
+
             // Refresh the table to show the new visit
             await fetchTodayVisits();
         } catch (error: any) {
@@ -846,12 +865,11 @@ export default function CounterPage() {
                                                 <TableCell className="px-6 py-4">{patient.doctor_name}</TableCell>
                                                 <TableCell className="px-6 py-4">{patient.payment_name}</TableCell>
                                                 <TableCell className="px-6 py-4">
-                                                    <span className={`inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium ${
-                                                        patient.tindak_lanjut === 'Pulang' ? 'bg-blue-100 text-blue-800' :
+                                                    <span className={`inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium ${patient.tindak_lanjut === 'Pulang' ? 'bg-blue-100 text-blue-800' :
                                                         patient.tindak_lanjut === 'Pindah Poli' ? 'bg-yellow-100 text-yellow-800' :
-                                                        patient.tindak_lanjut === 'Rawat Inap' ? 'bg-green-100 text-green-800' :
-                                                        'bg-gray-100 text-gray-800'
-                                                    }`}>
+                                                            patient.tindak_lanjut === 'Rawat Inap' ? 'bg-green-100 text-green-800' :
+                                                                'bg-gray-100 text-gray-800'
+                                                        }`}>
                                                         {patient.tindak_lanjut}
                                                     </span>
                                                 </TableCell>
@@ -962,7 +980,7 @@ export default function CounterPage() {
                                 Konfirmasi Reset Semua Antrian
                             </h3>
                             <p className="text-gray-600 mb-6">
-                                Apakah Anda yakin ingin mereset <strong>SEMUA antrian di SEMUA loket</strong>? 
+                                Apakah Anda yakin ingin mereset <strong>SEMUA antrian di SEMUA loket</strong>?
                                 Semua data antrian akan dihapus dan nomor antrian akan kembali ke 0.
                             </p>
                             <div className="flex gap-3 justify-end">

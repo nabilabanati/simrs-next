@@ -291,6 +291,7 @@ CREATE TABLE IF NOT EXISTS public.pharmacy_orders (
 CREATE TABLE IF NOT EXISTS public.invoices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   visit_id uuid REFERENCES public.visits(id) ON DELETE SET NULL,
+  prescription_id uuid REFERENCES public.prescriptions(id) ON DELETE SET NULL,
   total numeric DEFAULT 0,
   paid boolean DEFAULT false,
   paid_at timestamptz
@@ -322,9 +323,8 @@ BEGIN
   -- Coba update HANYA JIKA status masih 'belum'
   UPDATE public.visits
   SET 
-    ttv_status = 'sedang_dikerjakan',
-    updated_at = now()
-    -- Kita bisa simpan siapa yg mengerjakan di tabel triase nanti via trigger/logic frontend
+    ttv_status = 'sedang_dikerjakan'
+    -- Removed: updated_at = now() (column doesn't exist in visits table)
   WHERE id = visit_id_input AND ttv_status = 'belum'
   RETURNING * INTO updated_row;
 
@@ -370,6 +370,7 @@ RETURNS trigger AS $$
 DECLARE
   biaya_poli numeric;
   biaya_obat numeric;
+  resep_id uuid;
 BEGIN
   -- Trigger jalan jika status visit berubah jadi 'selesai' (atau status khusus 'kasir_pending')
   IF NEW.status = 'selesai' AND OLD.status != 'selesai' THEN
@@ -377,16 +378,19 @@ BEGIN
     -- 1. Ambil harga poli
     SELECT harga_daftar INTO biaya_poli FROM public.poli WHERE id = NEW.poli_id;
 
-    -- 2. Hitung total obat dari resep terkait visit ini
-    SELECT COALESCE(SUM(m.harga * pi.qty), 0) INTO biaya_obat
+    -- 2. Ambil prescription_id dan hitung total obat dari resep terkait visit ini
+    SELECT p.id, COALESCE(SUM(m.harga * pi.qty), 0) 
+    INTO resep_id, biaya_obat
     FROM public.prescriptions p
-    JOIN public.prescription_items pi ON pi.prescription_id = p.id
-    JOIN public.medicines m ON m.id = pi.medicine_id
-    WHERE p.visit_id = NEW.id;
+    LEFT JOIN public.prescription_items pi ON pi.prescription_id = p.id
+    LEFT JOIN public.medicines m ON m.id = pi.medicine_id
+    WHERE p.visit_id = NEW.id
+    GROUP BY p.id
+    LIMIT 1;
 
-    -- 3. Insert ke Invoices
-    INSERT INTO public.invoices (visit_id, total, paid)
-    VALUES (NEW.id, (biaya_poli + biaya_obat), false);
+    -- 3. Insert ke Invoices (dengan prescription_id)
+    INSERT INTO public.invoices (visit_id, prescription_id, total, paid)
+    VALUES (NEW.id, resep_id, (biaya_poli + COALESCE(biaya_obat, 0)), false);
     
   END IF;
   RETURN NEW;

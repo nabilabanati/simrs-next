@@ -1,0 +1,570 @@
+import { useEffect, useState } from "react"
+import { useRouter } from "next/router"
+import { supabase } from "@/lib/supabase"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import { ArrowLeft, Plus, Trash2, Save, Pill } from "lucide-react"
+import { toast } from "sonner"
+import PrescriptionModal from "@/components/doctor/PrescriptionModal"
+import { Badge } from "@/components/ui/badge"
+import DoctorLayout from "@/components/layout/DoctorLayout"
+import Breadcrumb from "@/components/dashboard/poli/Breadcrumb"
+
+interface PrescriptionItem {
+    id: string
+    type: "regular" | "compounded"
+    medicine_id?: string
+    nama_obat: string
+    qty: number
+    satuan: string
+    instruksi: string
+    composition?: string
+    max_stock?: number
+}
+
+export default function SOAPFormPage() {
+    const router = useRouter()
+    const { visitId } = router.query
+
+    const [user, setUser] = useState<any>(null)
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+
+    // Data
+    const [visit, setVisit] = useState<any>(null)
+    const [patient, setPatient] = useState<any>(null)
+    const [ttvData, setTtvData] = useState<any>(null)
+    const [medicines, setMedicines] = useState<any[]>([])
+    const [existingSOAP, setExistingSOAP] = useState<any>(null)
+
+    // SOAP form
+    const [subjective, setSubjective] = useState("")
+    const [objective, setObjective] = useState("")
+    const [assessment, setAssessment] = useState("")
+    const [plan, setPlan] = useState("")
+
+    // Prescription
+    const [prescriptionItems, setPrescriptionItems] = useState<PrescriptionItem[]>([])
+    const [catatan, setCatatan] = useState("")
+    const [prescriptionModalOpen, setPrescriptionModalOpen] = useState(false)
+
+    // ================= AUTH CHECK =================
+    useEffect(() => {
+        const u = JSON.parse(localStorage.getItem("user") || "null")
+        if (!u || u.role !== "dokter") {
+            router.push("/login")
+            return
+        }
+        setUser(u)
+    }, [router])
+
+    // ================= FETCH DATA =================
+    useEffect(() => {
+        if (!visitId || !user) return
+        fetchData()
+    }, [visitId, user])
+
+    // Helper to get auth headers
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token')
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        }
+    }
+
+    async function fetchData() {
+        setLoading(true)
+
+        try {
+            // 1. Get visit data
+            const { data: visitData } = await supabase
+                .from("visits")
+                .select(`
+          *,
+          patients:patient_id (*),
+          poli:poli_id (
+            id,
+            nama
+          )
+        `)
+                .eq("id", visitId)
+                .single()
+
+            if (visitData) {
+                setVisit(visitData)
+                setPatient(visitData.patients)
+            }
+
+            // 2. Get TTV data
+            try {
+                const ttvRes = await fetch(`/api/triase?visit_id=${visitId}`, {
+                    headers: getAuthHeaders(),
+                })
+                const ttvJson = await ttvRes.json()
+
+                console.log("TTV API Response:", ttvJson)
+
+                if (ttvRes.ok && ttvJson.data) {
+                    setTtvData(ttvJson.data)
+                    console.log("TTV Data loaded:", ttvJson.data)
+                } else if (ttvRes.ok && ttvJson.data === null) {
+                    console.warn("No TTV data found for this visit")
+                    setTtvData(null)
+                } else {
+                    console.error("TTV API Error:", ttvJson)
+                    toast.warning("Gagal memuat data TTV")
+                }
+            } catch (error) {
+                console.error("Error fetching TTV:", error)
+                toast.error("Terjadi kesalahan saat memuat TTV")
+            }
+
+            // 3. Get existing SOAP if any
+            const { data: soapData } = await supabase
+                .from("medical_records")
+                .select("*")
+                .eq("visit_id", visitId)
+                .single()
+
+            if (soapData) {
+                setExistingSOAP(soapData)
+                setSubjective(soapData.anamnesis || "")
+                setObjective(soapData.pemeriksaan_fisik || "")
+                setAssessment(soapData.assessment || "")
+                setPlan(soapData.plan || "")
+            }
+
+            // 4. Get medicines with stock
+            const medRes = await fetch("/api/master/medicines-with-stock", {
+                headers: getAuthHeaders(),
+            })
+            const medJson = await medRes.json()
+
+            console.log("Medicine API response:", medJson)
+
+            if (medJson.data) {
+                setMedicines(medJson.data)
+                console.log("Loaded medicines:", medJson.data.length)
+            } else {
+                console.warn("No medicine data returned")
+                toast.warning("Tidak ada data obat tersedia. Silakan hubungi admin untuk menambahkan data obat.")
+            }
+        } catch (error) {
+            console.error("Error fetching data:", error)
+            toast.error("Gagal memuat data")
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    // ================= PRESCRIPTION MANAGEMENT =================
+    const handleAddPrescriptionItem = (item: PrescriptionItem) => {
+        setPrescriptionItems([...prescriptionItems, item])
+    }
+
+    const addPrescriptionItem = () => {
+        setPrescriptionItems([
+            ...prescriptionItems,
+            {
+                id: `temp-${Date.now()}`,
+                type: 'regular',
+                medicine_id: "",
+                nama_obat: "",
+                qty: 1,
+                satuan: "tablet",
+                instruksi: "",
+                max_stock: 0,
+            },
+        ])
+    }
+
+
+    const removePrescriptionItem = (id: string) => {
+        setPrescriptionItems(prescriptionItems.filter((item) => item.id !== id))
+    }
+
+    const updatePrescriptionItem = (
+        id: string,
+        field: keyof PrescriptionItem,
+        value: any
+    ) => {
+        setPrescriptionItems(
+            prescriptionItems.map((item) => {
+                if (item.id === id) {
+                    // If medicine_id changed, update stock info
+                    if (field === "medicine_id") {
+                        const medicine = medicines.find((m) => m.id === value)
+                        return {
+                            ...item,
+                            type: 'regular',
+                            medicine_id: value,
+                            nama_obat: medicine?.nama || "",
+                            max_stock: medicine?.total_stock || 0,
+                        }
+                    }
+                    return { ...item, [field]: value }
+                }
+                return item
+            })
+        )
+    }
+
+
+    // ================= VALIDATION =================
+    const validateForm = (): boolean => {
+        // SOAP fields optional per user request
+        // But prescription items must be valid if added
+        for (const item of prescriptionItems) {
+            // For regular medicines
+            if (item.type === 'regular') {
+                if (!item.medicine_id) {
+                    toast.error("Pilih obat untuk semua item resep")
+                    return false
+                }
+                if (item.qty <= 0) {
+                    toast.error("Jumlah obat harus lebih dari 0")
+                    return false
+                }
+                if (item.max_stock && item.qty > item.max_stock) {
+                    toast.error(
+                        `Stok ${item.nama_obat} tidak mencukupi (tersedia: ${item.max_stock})`
+                    )
+                    return false
+                }
+            }
+            // For compounded medicines
+            else if (item.type === 'compounded') {
+                if (!item.nama_obat.trim()) {
+                    toast.error("Nama obat racikan harus diisi")
+                    return false
+                }
+                if (item.qty <= 0) {
+                    toast.error("Jumlah obat harus lebih dari 0")
+                    return false
+                }
+            }
+        }
+        return true
+    }
+
+    // ================= SAVE =================
+    const handleSave = async () => {
+        if (!validateForm()) return
+
+        setSaving(true)
+
+        try {
+            // 1. Save/Update SOAP
+            const soapPayload = {
+                visit_id: visitId,
+                anamnesis: subjective || null,
+                pemeriksaan_fisik: objective || null,
+                assessment: assessment || null,
+                plan: plan || null,
+                created_by: user.id,
+            }
+
+            let soapId = existingSOAP?.id
+
+            if (existingSOAP) {
+                // Update existing
+                const { error } = await supabase
+                    .from("medical_records")
+                    .update(soapPayload)
+                    .eq("id", existingSOAP.id)
+
+                if (error) throw error
+            } else {
+                // Insert new
+                const { data, error } = await supabase
+                    .from("medical_records")
+                    .insert(soapPayload)
+                    .select()
+                    .single()
+
+                if (error) throw error
+                soapId = data.id
+            }
+
+            // 2. Save prescription if items exist
+            if (prescriptionItems.length > 0) {
+                // Create prescription header
+                const { data: prescriptionData, error: prescError } = await supabase
+                    .from("prescriptions")
+                    .insert({
+                        visit_id: visitId,
+                        created_by: user.id,
+                        status: "pending",
+                    })
+                    .select()
+                    .single()
+
+                if (prescError) throw prescError
+
+                // Insert prescription items
+                const items = prescriptionItems.map((item) => ({
+                    prescription_id: prescriptionData.id,
+                    medicine_id: item.medicine_id,
+                    nama_obat: item.nama_obat,
+                    qty: item.qty,
+                    satuan: item.satuan,
+                    instruksi: item.instruksi,
+                }))
+
+                const { error: itemsError } = await supabase
+                    .from("prescription_items")
+                    .insert(items)
+
+                if (itemsError) throw itemsError
+
+                // Create pharmacy order
+                await supabase.from("pharmacy_orders").insert({
+                    prescription_id: prescriptionData.id,
+                    status: "waiting",
+                })
+            }
+
+            toast.success("Data pemeriksaan berhasil disimpan")
+            router.push(`/doctor/patients/${visitId}`)
+        } catch (error: any) {
+            console.error("Error saving:", error)
+            toast.error(error.message || "Gagal menyimpan data")
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    if (!user || loading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-gray-500">Memuat data...</div>
+            </div>
+        )
+    }
+
+    return (
+        <DoctorLayout>
+            <div className="px-12 pb-12 py-12 pr-12 pl-12 pt-16">
+                {/* Breadcrumb */}
+                <Breadcrumb
+                    items={[
+                        { label: visit?.poli?.nama || "Poli", href: "/doctor" },
+                        { label: "Dashboard Dokter", href: "/doctor" },
+                        { label: patient?.nama || "Pasien", href: `/doctor/patients/${patient?.id}` },
+                        { label: "Tambah Data Kunjungan" }
+                    ]}
+                />
+
+                {/* Patient Info Card */}
+                <div className="bg-white rounded-lg border border-gray-200 pt-4 pb-5 pl-6 mb-6">
+                    <div className="flex items-center gap-2 mb-1">
+                        <h2 className="text-2xl font-bold text-gray-900">{patient?.nama}</h2>
+                        <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+                            Aktif
+                        </Badge>
+                    </div>
+                    <div className="">
+                        <div className="text-sm font-bold text-gray-600 space-y-1">
+                            <p>NRM: {patient?.nrm}</p></div>
+                        <div className="text-sm font-medium text-gray-500">
+                            <p>Tanggal Masuk: {visit?.created_at ? new Date(visit.created_at).toLocaleDateString("id-ID", {
+                                day: "2-digit",
+                                month: "long",
+                                year: "numeric"
+                            }) : "-"}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Form Title */}
+                <h1 className="text-2xl font-bold text-gray-900 mb-6">Tambah Tindakan</h1>
+
+                {/* Main Form - All in One Card */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+                    {/* Basic Info Grid */}
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-4 mb-6">
+                        <div>
+                            <Label className="text-sm font-medium text-gray-700">Poli</Label>
+                            <Input value={visit?.poli?.nama || "Poli Penyakit Dalam"} disabled className="mt-1 bg-gray-50" />
+                        </div>
+                        <div></div>
+                        <div>
+                            <Label className="text-sm font-medium text-gray-700">Dokter PJ</Label>
+                            <Input value={user?.nama || "dr. Sifa"} disabled className="mt-1 bg-gray-50" />
+                        </div>
+                        <div></div>
+                        <div>
+                            <Label className="text-sm font-medium text-gray-700">Tanggal Tindakan</Label>
+                            <Input type="date" value={new Date().toISOString().split('T')[0]} disabled className="mt-1 bg-gray-50" />
+                        </div>
+                        <div>
+                            <Label className="text-sm font-medium text-gray-700">Jenis Tindakan</Label>
+                            <Select defaultValue="pemeriksaan">
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="pemeriksaan">Pemeriksaan Fisik</SelectItem>
+                                    <SelectItem value="konsultasi">Konsultasi</SelectItem>
+                                    <SelectItem value="tindakan">Tindakan Medis</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    {/* TTV Section */}
+                    <div className="mb-6">
+                        <Label className="text-sm font-medium text-gray-700 mb-3 block">TTV</Label>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                            <p className="text-sm font-medium text-gray-600 mb-3">Perawat</p>
+                            {ttvData ? (
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                                    <div><Label className="text-sm text-gray-600">Tensi</Label><Input value={ttvData.tensi || "-"} disabled className="mt-1 bg-white" /></div>
+                                    <div><Label className="text-sm text-gray-600">Nadi</Label><Input value={ttvData.nadi ? `${ttvData.nadi} bpm` : "-"} disabled className="mt-1 bg-white" /></div>
+                                    <div><Label className="text-sm text-gray-600">SpO2</Label><Input value={ttvData.spo2 ? `${ttvData.spo2}%` : "-"} disabled className="mt-1 bg-white" /></div>
+                                    <div><Label className="text-sm text-gray-600">Suhu</Label><Input value={ttvData.suhu ? `${ttvData.suhu}°C` : "-"} disabled className="mt-1 bg-white" /></div>
+                                    <div><Label className="text-sm text-gray-600">Respirasi</Label><Input value={ttvData.resp ? `${ttvData.resp}/menit` : "-"} disabled className="mt-1 bg-white" /></div>
+                                    <div className="col-span-2"><Label className="text-sm text-gray-600">Catatan Perawat</Label><Textarea value={ttvData.catatan || "-"} disabled className="mt-1 bg-white" rows={2} /></div>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500">TTV belum diisi oleh perawat</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* SOAP Fields */}
+                    <div className="space-y-4 mb-6">
+                        <div>
+                            <Label className="text-sm font-medium text-gray-700">Keluhan Pasien</Label>
+                            <Textarea value={subjective} onChange={(e) => setSubjective(e.target.value)} placeholder="Keluhan Pasien." rows={6} className="mt-1" />
+                        </div>
+                        <div>
+                            <Label className="text-sm font-medium text-gray-700">Pemeriksaan Fisik</Label>
+                            <Textarea value={objective} onChange={(e) => setObjective(e.target.value)} placeholder="Tidak ada gejala fisik" rows={2} className="mt-1" />
+                        </div>
+                        <div>
+                            <Label className="text-sm font-medium text-gray-700">Diagnosis</Label>
+                            <Textarea value={assessment} onChange={(e) => setAssessment(e.target.value)} placeholder="diagnosis dari dokter" rows={2} className="mt-1" />
+                        </div>
+                        <div>
+                            <Label className="text-sm font-medium text-gray-700">Rencana Tindakan</Label>
+                            <Textarea value={plan} onChange={(e) => setPlan(e.target.value)} placeholder="Rencana Tindakan" rows={3} className="mt-1" />
+                        </div>
+                    </div>
+
+                    {/* Resep Section */}
+                    <div className="mb-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <Label className="text-sm font-medium text-gray-700">Resep</Label>
+                            <Button onClick={addPrescriptionItem} size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+                                <Plus className="w-4 h-4 mr-2" />
+                                Tambah Resep
+                            </Button>
+                        </div>
+
+                        {prescriptionItems.length === 0 ? (
+                            <div className="text-center py-8 bg-gray-50 rounded-lg">
+                                <div className="flex flex-col items-center justify-center">
+                                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-3">
+                                        <Pill className="w-8 h-8 text-gray-400" />
+                                    </div>
+                                    <p className="text-sm text-gray-500">Tidak ada resep yang dipilih</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {prescriptionItems.map((item) => (
+                                    <div key={item.id} className="border rounded-lg p-4 relative">
+                                        <div className="absolute top-2 right-2">
+                                            <Button variant="ghost" size="icon" onClick={() => removePrescriptionItem(item.id)}>
+                                                <Trash2 className="w-4 h-4 text-red-600" />
+                                            </Button>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <Label>Obat</Label>
+                                                <Select value={item.medicine_id} onValueChange={(value) => updatePrescriptionItem(item.id, "medicine_id", value)}>
+                                                    <SelectTrigger><SelectValue placeholder="Pilih obat" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {medicines.map((med) => (
+                                                            <SelectItem key={med.id} value={med.id}>{med.nama} (Stok: {med.total_stock})</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <Label>Jumlah</Label>
+                                                    <Input type="number" min={1} max={item.max_stock} value={item.qty} onChange={(e) => updatePrescriptionItem(item.id, "qty", parseInt(e.target.value) || 1)} />
+                                                </div>
+                                                <div>
+                                                    <Label>Satuan</Label>
+                                                    <Input value={item.satuan} onChange={(e) => updatePrescriptionItem(item.id, "satuan", e.target.value)} />
+                                                </div>
+                                            </div>
+                                            <div className="md:col-span-2">
+                                                <Label>Instruksi (Aturan Pakai)</Label>
+                                                <Input value={item.instruksi} onChange={(e) => updatePrescriptionItem(item.id, "instruksi", e.target.value)} placeholder="Contoh: 3x1 sehari sesudah makan" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div>
+                                    <Label>Catatan Tambahan</Label>
+                                    <Textarea value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Catatan obat yang tidak tersedia di stok, dll..." rows={2} />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Tindakan Lanjut */}
+                    <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-3 block">Tindakan Lanjut</Label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label className="text-sm text-gray-600">Rujuk ke</Label>
+                                <Select defaultValue="dirujuk">
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="dirujuk">Dirujuk</SelectItem>
+                                        <SelectItem value="poli_lain">Poli Lain</SelectItem>
+                                        <SelectItem value="nama_poli">Nama Poli</SelectItem>
+                                        <SelectItem value="poli_paru">Poli Paru</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3">
+                    <Button variant="outline" onClick={() => router.back()}>
+                        Kembali
+                    </Button>
+                    <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+                        {saving ? "Menyimpan..." : "Tambah Pasien"}
+                    </Button>
+                </div>
+            </div>
+        </DoctorLayout>
+    )
+}
+
+
+{/* Main Form - All in One Card */ }
+<div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+    {/* Basic Info Grid */}
+    <div className="grid grid-cols-2 gap-x-6 gap-y-4 mb-6">
+        {/* Poli */}
+        <div>
+            <Label className="text-sm font-medium text-gray-700">Poli</Label>
+            <Input

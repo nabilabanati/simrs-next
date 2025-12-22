@@ -34,6 +34,7 @@ import type { Clinic } from '@/pages/api/clinics';
 import type { Doctor } from '@/pages/api/doctors';
 import type { PaymentMethod } from '@/pages/api/payment-methods';
 import AddVisitModal from '@/components/modals/add-visit-modal';
+import { toast } from 'sonner';
 
 export default function RegistrationDeskPage() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function RegistrationDeskPage() {
   const [currentQueue, setCurrentQueue] = useState(1);
   const [currentLoket, setCurrentLoket] = useState(1);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  
+
   // Filter states
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -54,6 +55,24 @@ export default function RegistrationDeskPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+
+  // Auth check
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const userData = JSON.parse(user);
+
+    // Check if user has loket role
+    if (userData.role !== 'loket') {
+      toast.error('Akses ditolak. Anda bukan petugas loket.');
+      router.push('/login');
+      return;
+    }
+  }, [router]);
 
   // Load API data on mount
   useEffect(() => {
@@ -548,7 +567,7 @@ export default function RegistrationDeskPage() {
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
-                        
+
                         {openDropdownId === patient.id && (
                           <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                             <button

@@ -68,6 +68,15 @@ export default function PharmacyDashboard() {
             return;
         }
 
+        const userData = JSON.parse(user);
+
+        // Check if user has farmasi role
+        if (userData.role !== 'farmasi') {
+            toast.error('Akses ditolak. Anda bukan petugas farmasi.');
+            router.push('/login');
+            return;
+        }
+
         fetchPrescriptions();
     }, [statusFilter, router]);
 

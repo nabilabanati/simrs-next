@@ -6,8 +6,14 @@ const SECRET = process.env.JWT_SECRET || "dev-secret";
 
 export function withAuth(handler: Function) {
   return async (req: NextApiRequest, res: NextApiResponse) => {
-    const bearer = req.headers.authorization;
-    const token = bearer?.split(" ")[1];
+    // Try to get token from cookie first (new method)
+    let token = req.cookies.token;
+
+    // Fallback to Authorization header (old method for backward compatibility)
+    if (!token) {
+      const bearer = req.headers.authorization;
+      token = bearer?.split(" ")[1];
+    }
 
     if (!token) {
       return fail(res, "Unauthorized", 401);

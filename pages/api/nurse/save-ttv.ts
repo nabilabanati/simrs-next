@@ -21,10 +21,10 @@ export default async function handler(
             return res.status(400).json({ error: 'All TTV fields are required' });
         }
 
-        // Insert triase data
+        // Upsert triase data (insert or update if exists)
         const { data: triase, error: triaseError } = await supabaseServer
             .from('triase')
-            .insert([
+            .upsert(
                 {
                     visit_id,
                     perawat_id: nurse_id,
@@ -35,19 +35,21 @@ export default async function handler(
                     resp: parseInt(resp),
                     catatan: catatan || null,
                 },
-            ])
+                {
+                    onConflict: 'visit_id', // Update if visit_id already exists
+                }
+            )
             .select()
             .single();
 
         if (triaseError) throw triaseError;
 
-        // Update visit status
+        // Update visit status (removed updated_at as it doesn't exist in visits table)
         const { error: visitError } = await supabaseServer
             .from('visits')
             .update({
                 ttv_status: 'selesai',
                 ttv_done: true,
-                updated_at: new Date().toISOString(),
             })
             .eq('id', visit_id);
 
@@ -66,3 +68,4 @@ export default async function handler(
         });
     }
 }
+

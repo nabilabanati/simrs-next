@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
 
 const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || "dev-secret"
 );
+
+// Supabase client for middleware (edge runtime compatible)
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
+    auth: { persistSession: false },
+});
 
 // Define route permissions
 const ROUTE_PERMISSIONS: Record<string, string[]> = {
@@ -50,13 +59,61 @@ export async function middleware(request: NextRequest) {
     try {
         // Verify JWT token using jose
         const { payload } = await jwtVerify(token, JWT_SECRET);
-        
+
         const decoded = payload as {
             id: string;
             role: string;
             username: string;
             nama: string;
+            sessionId?: string;
         };
+
+        console.log("🔍 [Middleware] Token decoded:", {
+            username: decoded.username,
+            hasSessionId: !!decoded.sessionId,
+            sessionId: decoded.sessionId
+        });
+
+        // === SESSION VALIDATION ===
+        // If token has sessionId, validate it's still active
+        if (decoded.sessionId) {
+            console.log("🔍 [Middleware] Checking session:", decoded.sessionId);
+
+            const { data: session, error: sessionError } = await supabase
+                .from('sessions')
+                .select('is_active, expires_at')
+                .eq('id', decoded.sessionId)
+                .single();
+
+            console.log("🔍 [Middleware] Session check result:", {
+                found: !!session,
+                isActive: session?.is_active,
+                error: sessionError?.message
+            });
+
+            // Session not found, inactive, or expired
+            if (sessionError || !session || !session.is_active) {
+                console.log("❌ [Middleware] Session invalidated, redirecting to login");
+                const loginUrl = new URL("/login", request.url);
+                loginUrl.searchParams.set("redirect", pathname);
+                loginUrl.searchParams.set("reason", "session_invalidated");
+                return NextResponse.redirect(loginUrl);
+            }
+
+            // Check if session expired
+            const expiresAt = new Date(session.expires_at);
+            if (expiresAt < new Date()) {
+                console.log("❌ [Middleware] Session expired, redirecting to login");
+                const loginUrl = new URL("/login", request.url);
+                loginUrl.searchParams.set("redirect", pathname);
+                loginUrl.searchParams.set("reason", "session_expired");
+                return NextResponse.redirect(loginUrl);
+            }
+
+            console.log("✅ [Middleware] Session valid, allowing access");
+        } else {
+            console.log("⚠️ [Middleware] No sessionId in token (old token or backward compatibility)");
+        }
 
         // Check route permissions
         for (const [route, allowedRoles] of Object.entries(ROUTE_PERMISSIONS)) {
