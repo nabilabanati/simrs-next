@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Calendar, Clock, Plus, Trash2, AlertCircle } from 'lucide-react'
+import { Calendar, Clock, Plus, Trash2, AlertCircle, Edit } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/router'
 
@@ -47,6 +47,7 @@ export default function DoctorSchedulePage() {
 
     // Regular schedule modal
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false)
+    const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
     const [selectedDay, setSelectedDay] = useState('')
     const [jamMulai, setJamMulai] = useState('')
     const [jamSelesai, setJamSelesai] = useState('')
@@ -148,34 +149,72 @@ export default function DoctorSchedulePage() {
         }
 
         try {
-            const response = await fetch('/api/doctor/schedule', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    dokter_id: dokterId,
-                    hari: selectedDay,
-                    jam_mulai: jamMulai,
-                    jam_selesai: jamSelesai,
-                    session_name: sessionName || null,
-                    max_patients_per_day: maxPatients ? parseInt(maxPatients) : null
+            if (editingScheduleId) {
+                // Update existing schedule
+                const response = await fetch(`/api/doctor/schedule?id=${editingScheduleId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        hari: selectedDay,
+                        jam_mulai: jamMulai,
+                        jam_selesai: jamSelesai,
+                        session_name: sessionName || null,
+                        max_patients_per_day: maxPatients ? parseInt(maxPatients) : null
+                    })
                 })
-            })
 
-            const data = await response.json()
+                const data = await response.json()
 
-            if (data.success) {
-                toast.success('Jadwal berhasil disimpan')
-                setIsScheduleModalOpen(false)
-                resetScheduleForm()
-                fetchSchedules(dokterId)
+                if (data.success) {
+                    toast.success('Jadwal berhasil diupdate')
+                    setIsScheduleModalOpen(false)
+                    resetScheduleForm()
+                    fetchSchedules(dokterId)
+                } else {
+                    toast.error(data.error || 'Gagal mengupdate jadwal')
+                }
             } else {
-                toast.error(data.error || 'Gagal menyimpan jadwal')
+                // Create new schedule
+                const response = await fetch('/api/doctor/schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        dokter_id: dokterId,
+                        hari: selectedDay,
+                        jam_mulai: jamMulai,
+                        jam_selesai: jamSelesai,
+                        session_name: sessionName || null,
+                        max_patients_per_day: maxPatients ? parseInt(maxPatients) : null
+                    })
+                })
+
+                const data = await response.json()
+
+                if (data.success) {
+                    toast.success('Jadwal berhasil disimpan')
+                    setIsScheduleModalOpen(false)
+                    resetScheduleForm()
+                    fetchSchedules(dokterId)
+                } else {
+                    toast.error(data.error || 'Gagal menyimpan jadwal')
+                }
             }
         } catch (error) {
             console.error('Error saving schedule:', error)
             toast.error('Terjadi kesalahan')
         }
+    }
+
+    const handleEditSchedule = (schedule: Schedule) => {
+        setEditingScheduleId(schedule.id)
+        setSelectedDay(schedule.hari)
+        setJamMulai(schedule.jam_mulai)
+        setJamSelesai(schedule.jam_selesai)
+        setSessionName(schedule.session_name || '')
+        setMaxPatients(schedule.max_patients_per_day?.toString() || '')
+        setIsScheduleModalOpen(true)
     }
 
     const handleSaveOverride = async () => {
@@ -272,6 +311,7 @@ export default function DoctorSchedulePage() {
     }
 
     const resetScheduleForm = () => {
+        setEditingScheduleId(null)
         setSelectedDay('')
         setJamMulai('')
         setJamSelesai('')
@@ -364,13 +404,22 @@ export default function DoctorSchedulePage() {
                                                                     </p>
                                                                 )}
                                                             </div>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => handleDeleteSchedule(schedule.id)}
-                                                            >
-                                                                <Trash2 className="h-4 w-4 text-red-600" />
-                                                            </Button>
+                                                            <div className="flex gap-1">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => handleEditSchedule(schedule)}
+                                                                >
+                                                                    <Edit className="h-4 w-4 text-blue-600" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => handleDeleteSchedule(schedule.id)}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                                                </Button>
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -453,7 +502,7 @@ export default function DoctorSchedulePage() {
                 <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Tambah Jadwal Rutin</DialogTitle>
+                            <DialogTitle>{editingScheduleId ? 'Edit Jadwal' : 'Tambah Jadwal Rutin'}</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div>
