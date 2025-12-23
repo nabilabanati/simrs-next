@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, Building2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface LoketQueueData {
   status: 'active' | 'inactive';
@@ -11,10 +12,10 @@ interface LoketQueueData {
 }
 
 export default function QueueInfoDisplay() {
-  const [currentQueue, setCurrentQueue] = useState<number>(1);
+  const [currentQueue, setCurrentQueue] = useState<number>(0);
   const [currentLoket, setCurrentLoket] = useState<number>(1);
   const [loketQueues, setLoketQueues] = useState<Record<number, LoketQueueData>>({
-    1: { status: 'active', currentNumber: 1, remaining: 49 },
+    1: { status: 'active', currentNumber: 0, remaining: 0 },
     2: { status: 'active', currentNumber: 0, remaining: 0 },
     3: { status: 'active', currentNumber: 0, remaining: 0 },
     4: { status: 'active', currentNumber: 0, remaining: 0 },
@@ -35,12 +36,75 @@ export default function QueueInfoDisplay() {
       setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(interval);
+  }, [currentTime]);
+
+  // Fetch latest queue data from database
+  const fetchLatestQueueData = async () => {
+    try {
+      // Get the most recent called ticket for each loket from visits table
+      const { data: calledTickets, error } = await supabase
+        .from('visits')
+        .select('loket_id, queue_number, called_at')
+        .eq('queue_status', 'dipanggil')
+        .not('queue_number', 'is', null)
+        .order('called_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching queue data:', error);
+        return;
+      }
+
+      if (calledTickets && calledTickets.length > 0) {
+        // Get the latest ticket across all lokets
+        const latestTicket = calledTickets[0];
+        setCurrentQueue(latestTicket.queue_number);
+        setCurrentLoket(latestTicket.loket_id);
+
+        // Update loket queues with the latest number for each loket
+        const loketMap: Record<number, number> = {};
+        calledTickets.forEach(ticket => {
+          if (!loketMap[ticket.loket_id]) {
+            loketMap[ticket.loket_id] = ticket.queue_number;
+          }
+        });
+
+        setLoketQueues(prev => {
+          const updated = { ...prev };
+          Object.entries(loketMap).forEach(([loketId, queueNum]) => {
+            const id = parseInt(loketId);
+            updated[id] = {
+              ...prev[id],
+              currentNumber: queueNum,
+            };
+          });
+          return updated;
+        });
+
+        console.log('Queue data updated from database:', latestTicket);
+      }
+    } catch (err) {
+      console.error('Error in fetchLatestQueueData:', err);
+    }
+  };
+
+  // Poll database every 2 seconds for updates
+  useEffect(() => {
+    // Initial fetch
+    fetchLatestQueueData();
+
+    // Set up polling
+    const pollInterval = setInterval(() => {
+      fetchLatestQueueData();
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
   }, []);
 
-  // Setup event listeners for queue updates
+  // Setup event listeners for queue updates (for instant updates via broadcast)
   useEffect(() => {
     // Handle queue call from counter
     const handleQueueCall = (event: CustomEvent) => {
+      console.log('Queue call event received:', event.detail);
       const data = event.detail;
       if (data && data.queue_number && data.loket_id) {
         setCurrentQueue(data.queue_number);
@@ -61,9 +125,11 @@ export default function QueueInfoDisplay() {
 
     // Handle storage events for cross-tab sync
     const handleStorageChange = (event: StorageEvent) => {
+      console.log('Storage event:', event.key, event.newValue);
       if (event.key === 'queueCalled' && event.newValue) {
         try {
           const data = JSON.parse(event.newValue);
+          console.log('Queue data from storage:', data);
           setCurrentQueue(data.queue_number);
           setCurrentLoket(data.loket_id);
           
@@ -82,6 +148,32 @@ export default function QueueInfoDisplay() {
       }
     };
 
+    // Check for queue call in localStorage on mount
+    const checkStorageOnMount = () => {
+      const stored = localStorage.getItem('queueCalled');
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          // Only use if recent (within last 5 seconds)
+          if (data.timestamp && Date.now() - data.timestamp < 5000) {
+            console.log('Found recent queue call on mount:', data);
+            setCurrentQueue(data.queue_number);
+            setCurrentLoket(data.loket_id);
+            setLoketQueues((prev) => ({
+              ...prev,
+              [data.loket_id]: {
+                ...prev[data.loket_id],
+                currentNumber: data.queue_number,
+              },
+            }));
+          }
+        } catch (error) {
+          console.error('Error parsing stored queue call:', error);
+        }
+      }
+    };
+
+    checkStorageOnMount();
     window.addEventListener('queueCalled', handleQueueCall as EventListener);
     window.addEventListener('storage', handleStorageChange);
 
@@ -219,7 +311,7 @@ export default function QueueInfoDisplay() {
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <Building2 className="w-8 h-8" />
-            <h1 className="text-2xl font-bold">RSUD SLAWI</h1>
+            <h1 className="text-2xl font-bold">LAYANAN KESEHATAN</h1>
           </div>
           <div className="text-right">
             <div className="flex items-center space-x-2 justify-end">
@@ -237,9 +329,9 @@ export default function QueueInfoDisplay() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           {/* Queue Info Card */}
           <Card className="shadow-lg overflow-hidden py-0 gap-0">
-            <CardHeader className="bg-teal-600 text-white p-5">
+            <CardHeader className="bg-blue-600 text-white p-5">
               <CardTitle className="text-center text-xl">
-                INFORMASI ANTRIAN PASIEN
+                INFORMASI ANTRIAN PASIEN SAAT INI
               </CardTitle>
             </CardHeader>
             <CardContent className="p-10 text-center">
@@ -247,49 +339,62 @@ export default function QueueInfoDisplay() {
                 {String(currentQueue).padStart(3, '0')}
               </div>
               <h3 className="text-2xl font-bold text-gray-800">
-                MENUJU LOKET <span className="text-teal-600">{targetLoket}</span>
+                MENUJU LOKET <span className="text-blue-600">{targetLoket}</span>
               </h3>
             </CardContent>
           </Card>
 
           {/* Hospital Image */}
-          <Card className="shadow-lg overflow-hidden">
+          <div className="shadow-lg overflow-hidden rounded-lg bg-white">
             <img
-              src="/api/placeholder/400/300"
-              alt="Medical Team"
-              className="h-full w-full object-cover"
+              src="/hospital_team.jpg"
+              alt="Tim Medis"
+              className="w-full object-cover block"
+              style={{ height: '300px', margin: 0, padding: 0, display: 'block', verticalAlign: 'bottom' }}
+              onError={(e) => {
+                e.currentTarget.src = '/api/placeholder/400/300';
+              }}
             />
-          </Card>
+          </div>
         </div>
 
         {/* Counter Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          {[1, 2, 3, 4, 5].map((loketNum) => (
-            <Card
-              key={loketNum}
-              className={`shadow-lg overflow-hidden transition-all p-0 gap-0
-                 ${
-                loketNum === targetLoket &&
-                loketQueues[loketNum].currentNumber === currentQueue
-                  ? 'ring-4 ring-teal-500 ring-opacity-50'
-                  : ''
-              }`}
-            >
-              <CardHeader className="bg-teal-600 text-white p-4">
-                  <CardTitle className="text-center font-bold text-base p-0">
-                  Loket {loketNum}
-                  </CardTitle>
-              </CardHeader>
-              <CardContent className="p-10 text-center">
-                <div className="text-4xl font-black text-gray-800">
-                  {String(loketQueues[loketNum]?.currentNumber || 0).padStart(
-                    3,
-                    '0'
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {[1, 2, 3, 4, 5].map((loketNum) => {
+            const isActive = loketNum === targetLoket && loketQueues[loketNum].currentNumber === currentQueue;
+            const hasQueue = loketQueues[loketNum]?.currentNumber > 0;
+            
+            return (
+              <Card
+                key={loketNum}
+                className={`shadow-lg overflow-hidden transition-all p-0 gap-0
+                   ${
+                  isActive
+                    ? 'ring-4 ring-blue-500 ring-opacity-50'
+                    : ''
+                }`}
+              >
+                <CardHeader className="bg-blue-600 text-white p-4">
+                    <CardTitle className="text-center font-bold text-base p-0">
+                    Loket {loketNum}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-10 text-center">
+                  <div className="text-4xl font-black text-gray-800 mb-2">
+                    {String(loketQueues[loketNum]?.currentNumber || 0).padStart(
+                      3,
+                      '0'
+                    )}
+                  </div>
+                  <div className={`text-xs font-semibold px-3 py-1 rounded-full inline-block ${
+                    hasQueue ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {hasQueue ? '● AKTIF' : '○ SIAP'}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Footer Message */}
@@ -297,7 +402,7 @@ export default function QueueInfoDisplay() {
           <div className="py-4 px-4">
             <div className="overflow-hidden">
               <p className="text-gray-800 font-medium text-lg animate-marquee whitespace-nowrap inline-block">
-                Selamat datang di RSUD Slawi - Kami siap melayani Anda dengan
+                Selamat datang di Layanan Kesehatan - Kami siap melayani Anda dengan
                 sepenuh hati - Mohon tunggu panggilan antrian Anda - Terima kasih
                 atas kesabaran Anda
               </p>

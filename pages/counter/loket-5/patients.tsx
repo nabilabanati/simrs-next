@@ -335,8 +335,8 @@ export default function PatientsListPage() {
                     <Button
                         onClick={() => {
                             const url = returnTo 
-                                ? `/counter/patients/create?returnTo=${encodeURIComponent(returnTo as string)}`
-                                : '/counter/patients/create';
+                                ? `/counter/loket-5/patients/create?returnTo=${encodeURIComponent(returnTo as string)}`
+                                : '/counter/loket-5/patients/create';
                             router.push(url);
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white"

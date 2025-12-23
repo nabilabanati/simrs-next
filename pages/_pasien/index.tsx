@@ -29,35 +29,32 @@ import {
   ChevronRight,
   MoreVertical,
 } from 'lucide-react';
-import { MASTER_PATIENTS } from '@/lib/dummy/master/patients';
-import type { PatientData } from '@/lib/shared/types/patient';
+import { supabaseClient as supabase } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 interface Patient {
   id: string;
   nrm: string;
   nama: string;
   nik: string;
-  tanggalLahir: string;
-  tempatLahir: string;
-  jenisKelamin: string;
-  noTelpPJ?: string;
-  golonganDarah: string;
-  statusNikah: string;
+  tanggal_lahir: string;
+  tempat_lahir: string;
+  jenis_kelamin: string;
+  no_telp?: string;
+  golongan_darah: string;
+  status_nikah: string;
   pekerjaan: string;
-  catatanKhusus: string;
+  catatan_khusus: string;
   alamat: string;
-  penanggungJawab: string;
-  namaPJ: string;
-  pekerjaanPJ: string;
-  penjamin: string;
-  status: string;
-  nama_instansi?: string;
-  nomor_surat?: string;
-  asalRujukan?: string;
-  noRujukan?: string;
-  kunjunganTerakhir?: string;
-  layananTerakhir?: string;
-  tanggalTerdaftar: string;
+  penanggung_jawab: string;
+  nama_pj: string;
+  pekerjaan_pj: string;
+  created_at: string;
+  patient_penjamin?: Array<{
+    penjamin: {
+      nama: string;
+    };
+  }>;
 }
 
 const ROWS_PER_PAGE = 15;
@@ -65,6 +62,7 @@ const ROWS_PER_PAGE = 15;
 export default function PatientListPage() {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPenjamin, setFilterPenjamin] = useState('');
@@ -78,10 +76,34 @@ export default function PatientListPage() {
   const [deletePatientId, setDeletePatientId] = useState<string | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
-  // Load patients from master data on mount
+  // Fetch patients from Supabase
   useEffect(() => {
-    setPatients(MASTER_PATIENTS as Patient[]);
+    fetchPatients();
   }, []);
+
+  const fetchPatients = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('patients')
+        .select(`
+          *,
+          patient_penjamin(
+            penjamin:penjamin_id(nama)
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setPatients(data || []);
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+      toast.error('Gagal memuat data pasien');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -133,15 +155,15 @@ export default function PatientListPage() {
   // Filter patients
   const filteredPatients = useMemo(() => {
     return patients.filter((patient) => {
-      const statusMatch = !filterStatus || patient.status.toLowerCase() === filterStatus.toLowerCase();
-      const penjaminMatch = !filterPenjamin || patient.penjamin.toLowerCase() === filterPenjamin.toLowerCase();
-      const genderMatch = !filterGender || patient.jenisKelamin === filterGender;
+      const penjaminName = patient.patient_penjamin?.[0]?.penjamin?.nama || 'UMUM';
+      const penjaminMatch = !filterPenjamin || penjaminName.toLowerCase() === filterPenjamin.toLowerCase();
+      const genderMatch = !filterGender || patient.jenis_kelamin === filterGender;
       const searchMatch = !searchInput ||
         patient.nrm.toLowerCase().includes(searchInput.toLowerCase()) ||
         patient.nama.toLowerCase().includes(searchInput.toLowerCase()) ||
         patient.nik.toLowerCase().includes(searchInput.toLowerCase());
 
-      return statusMatch && penjaminMatch && genderMatch && searchMatch;
+      return penjaminMatch && genderMatch && searchMatch;
     });
   }, [patients, filterStatus, filterPenjamin, filterGender, searchInput]);
 
@@ -178,17 +200,16 @@ export default function PatientListPage() {
 
   // Export to CSV
   const exportToCSV = () => {
-    const headers = ['NO.', 'NRM', 'NAMA PASIEN', 'NIK', 'UMUR', 'JK', 'NO TELP', 'PENJAMIN', 'STATUS'];
+    const headers = ['NO.', 'NRM', 'NAMA PASIEN', 'NIK', 'UMUR', 'JK', 'NO TELP', 'PENJAMIN'];
     const rows = filteredPatients.map((patient, idx) => [
       startIndex + idx + 1,
       patient.nrm,
       patient.nama,
       patient.nik,
-      calculateAge(patient.tanggalLahir),
-      patient.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan',
-      patient.noTelpPJ || '-',
-      patient.penjamin,
-      patient.status,
+      calculateAge(patient.tanggal_lahir),
+      patient.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan',
+      patient.no_telp || '-',
+      patient.patient_penjamin?.[0]?.penjamin?.nama || 'UMUM',
     ]);
 
     const csv = [
@@ -205,17 +226,16 @@ export default function PatientListPage() {
 
   // Export to Excel
   const exportToExcel = () => {
-    const headers = ['NO.', 'NRM', 'NAMA PASIEN', 'NIK', 'UMUR', 'JK', 'NO TELP', 'PENJAMIN', 'STATUS'];
+    const headers = ['NO.', 'NRM', 'NAMA PASIEN', 'NIK', 'UMUR', 'JK', 'NO TELP', 'PENJAMIN'];
     const rows = filteredPatients.map((patient, idx) => [
       startIndex + idx + 1,
       patient.nrm,
       patient.nama,
       patient.nik,
-      calculateAge(patient.tanggalLahir),
-      patient.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan',
-      patient.noTelpPJ || '-',
-      patient.penjamin,
-      patient.status,
+      calculateAge(patient.tanggal_lahir),
+      patient.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan',
+      patient.no_telp || '-',
+      patient.patient_penjamin?.[0]?.penjamin?.nama || 'UMUM',
     ]);
 
     let html = '<table border="1"><tr>';
@@ -392,7 +412,6 @@ export default function PatientListPage() {
                     <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">JK</TableHead>
                     <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">NO TELP</TableHead>
                     <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">PENJAMIN</TableHead>
-                    <TableHead className="px-6 py-3 text-xs font-bold text-gray-700 uppercase">STATUS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -447,22 +466,13 @@ export default function PatientListPage() {
                         <TableCell className="px-6 py-4 font-medium text-gray-900">{patient.nrm}</TableCell>
                         <TableCell className="px-6 py-4 text-gray-900">{patient.nama}</TableCell>
                         <TableCell className="px-6 py-4 text-gray-900">{patient.nik}</TableCell>
-                        <TableCell className="px-6 py-4 text-gray-900">{calculateAge(patient.tanggalLahir)} tahun</TableCell>
+                        <TableCell className="px-6 py-4 text-gray-900">{calculateAge(patient.tanggal_lahir)} tahun</TableCell>
                         <TableCell className="px-6 py-4 text-gray-900">
-                          {patient.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan'}
+                          {patient.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-gray-900">{patient.noTelpPJ}</TableCell>
-                        <TableCell className="px-6 py-4 text-gray-900">{patient.penjamin}</TableCell>
-                        <TableCell className="px-6 py-4">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              patient.status === 'Aktif'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {patient.status}
-                          </span>
+                        <TableCell className="px-6 py-4 text-gray-900">{patient.no_telp || '-'}</TableCell>
+                        <TableCell className="px-6 py-4 text-gray-900">
+                          {patient.patient_penjamin?.[0]?.penjamin?.nama || 'UMUM'}
                         </TableCell>
                       </TableRow>
                     ))
@@ -539,7 +549,7 @@ export default function PatientListPage() {
               <div>
                 <CardTitle>{selectedPatient.nama}</CardTitle>
                 <p className="text-sm text-gray-500 mt-2">
-                  NRM. {selectedPatient.nrm} | Terdaftar: {selectedPatient.tanggalTerdaftar}
+                  NRM. {selectedPatient.nrm} | Terdaftar: {new Date(selectedPatient.created_at).toLocaleDateString('id-ID')}
                 </p>
               </div>
               <Button
@@ -554,27 +564,21 @@ export default function PatientListPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                 <div className="space-y-2">
                   <p><strong>NIK:</strong> {selectedPatient.nik}</p>
-                  <p><strong>Tanggal Lahir:</strong> {selectedPatient.tanggalLahir}</p>
-                  <p><strong>Tempat Lahir:</strong> {selectedPatient.tempatLahir}</p>
-                  <p><strong>Jenis Kelamin:</strong> {selectedPatient.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan'}</p>
-                  <p><strong>No. Telp PJ:</strong> {selectedPatient.noTelpPJ}</p>
-                  <p><strong>Golongan Darah:</strong> {selectedPatient.golonganDarah}</p>
-                  <p><strong>Status Nikah:</strong> {selectedPatient.statusNikah}</p>
+                  <p><strong>Tanggal Lahir:</strong> {selectedPatient.tanggal_lahir}</p>
+                  <p><strong>Tempat Lahir:</strong> {selectedPatient.tempat_lahir}</p>
+                  <p><strong>Jenis Kelamin:</strong> {selectedPatient.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}</p>
+                  <p><strong>No. Telp:</strong> {selectedPatient.no_telp || '-'}</p>
+                  <p><strong>Golongan Darah:</strong> {selectedPatient.golongan_darah}</p>
+                  <p><strong>Status Nikah:</strong> {selectedPatient.status_nikah}</p>
                   <p><strong>Pekerjaan:</strong> {selectedPatient.pekerjaan}</p>
-                  <p><strong>Catatan Khusus:</strong> {selectedPatient.catatanKhusus}</p>
+                  <p><strong>Catatan Khusus:</strong> {selectedPatient.catatan_khusus || '-'}</p>
                   <p><strong>Alamat:</strong> {selectedPatient.alamat}</p>
                 </div>
                 <div className="space-y-2">
-                  <p><strong>Penanggung Jawab:</strong> {selectedPatient.penanggungJawab}</p>
-                  <p><strong>Nama PJ:</strong> {selectedPatient.namaPJ}</p>
-                  <p><strong>Pekerjaan PJ:</strong> {selectedPatient.pekerjaanPJ}</p>
-                  <p><strong>Penjamin:</strong> {selectedPatient.penjamin}</p>
-                  <p><strong>Nama Instansi:</strong> {selectedPatient.nama_instansi}</p>
-                  <p><strong>No. Surat Penjamin:</strong> {selectedPatient.nomor_surat}</p>
-                  <p><strong>Asal Rujukan:</strong> {selectedPatient.asalRujukan}</p>
-                  <p><strong>No. Surat Rujukan:</strong> {selectedPatient.noRujukan}</p>
-                  <p><strong>Riwayat Kunjungan:</strong> {selectedPatient.kunjunganTerakhir}</p>
-                  <p><strong>Layanan Terakhir:</strong> {selectedPatient.layananTerakhir}</p>
+                  <p><strong>Penanggung Jawab:</strong> {selectedPatient.penanggung_jawab}</p>
+                  <p><strong>Nama PJ:</strong> {selectedPatient.nama_pj}</p>
+                  <p><strong>Pekerjaan PJ:</strong> {selectedPatient.pekerjaan_pj}</p>
+                  <p><strong>Penjamin:</strong> {selectedPatient.patient_penjamin?.[0]?.penjamin?.nama || 'UMUM'}</p>
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6 pt-6 border-t no-print">

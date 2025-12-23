@@ -18,6 +18,8 @@ export default function QueueTakePage() {
   const [lastTicket, setLastTicket] = useState<{queue_number: number, loket_id: number} | null>(null);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Initialize time on client-side only to prevent hydration error
@@ -35,7 +37,7 @@ export default function QueueTakePage() {
     return () => clearInterval(interval);
   }, [currentTime]);
 
-  // Auto-hide modal after 3 seconds
+  // Auto-hide success modal after 3 seconds
   useEffect(() => {
     if (showModal) {
       const timer = setTimeout(() => {
@@ -44,6 +46,16 @@ export default function QueueTakePage() {
       return () => clearTimeout(timer);
     }
   }, [showModal]);
+
+  // Auto-hide error modal after 4 seconds
+  useEffect(() => {
+    if (showErrorModal) {
+      const timer = setTimeout(() => {
+        setShowErrorModal(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showErrorModal]);
 
   const handleTakeQueue = async () => {
     setLoading(true);
@@ -58,17 +70,16 @@ export default function QueueTakePage() {
         throw new Error(data.error || 'Failed to take ticket');
       }
 
-      // Set ticket data
+      // Set ticket data (without loket_id)
       setLastTicket({
         queue_number: data.ticket.queue_number,
-        loket_id: data.ticket.loket_id,
+        loket_id: 0, // Hidden from patient
       });
       setShowModal(true);
 
-      // Broadcast event for display page
+      // Broadcast event for display page (without loket_id)
       const ticketData = {
         queue_number: data.ticket.queue_number,
-        loket_id: data.ticket.loket_id,
         timestamp: Date.now(),
       };
 
@@ -81,14 +92,15 @@ export default function QueueTakePage() {
       localStorage.setItem('lastTicketTaken', JSON.stringify(ticketData));
     } catch (error) {
       console.error('Error taking ticket:', error);
-      alert('Gagal mengambil nomor antrian. Silakan coba lagi.');
+      setErrorMessage('Gagal mengambil nomor antrian. Silakan coba lagi.');
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
   };
 
   const displayNumber = lastTicket ? String(lastTicket.queue_number).padStart(3, '0') : '000';
-  const displayLoket = lastTicket ? lastTicket.loket_id : 1;
+  // Do NOT display loket to patient
 
   const timeString = currentTime?.toLocaleTimeString('id-ID', {
     hour12: false,
@@ -120,7 +132,7 @@ export default function QueueTakePage() {
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <Building2 className="w-8 h-8" />
-            <h1 className="text-2xl font-bold">RSUD SLAWI</h1>
+            <h1 className="text-2xl font-bold">LAYANAN KESEHATAN</h1>
           </div>
           <div className="text-right">
             <div className="flex items-center space-x-2 justify-end">
@@ -138,7 +150,7 @@ export default function QueueTakePage() {
           <Card className="shadow-2xl border border-gray-200">
               <div className=" text-center">
                 <h2 className="text-sm font-bold text-gray-600 mb-2 pt-4">
-                  RUMAH SAKIT UMUM DAERAH SLAWI
+                  LAYANAN KESEHATAN
                 </h2>
                 <h1 className="text-4xl font-bold text-gray-800 mb-8 pb-5">
                   NOMOR ANTRIAN
@@ -148,10 +160,8 @@ export default function QueueTakePage() {
                   <div className="text-9xl font-black text-gray-800 mb-4">
                     {displayNumber}
                   </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2 pt-8">
-                    LOKET {displayLoket}
-                  </h3>
-                  <div className="text-gray-600 text-lg">{queueTimeString}</div>
+                  <div className="text-gray-600 text-lg mt-8">{queueTimeString}</div>
+                  <p className="text-gray-500 text-sm mt-4">Silakan menunggu panggilan</p>
                 </div>
               </div>
           </Card>
@@ -184,14 +194,39 @@ export default function QueueTakePage() {
               </p>
 
               <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Anda diarahkan ke:</p>
-                <p className="text-lg font-bold text-blue-600">
-                  LOKET {lastTicket?.loket_id || 1}
+                <p className="text-sm text-gray-600 mb-1">Nomor Antrian Anda:</p>
+                <p className="text-3xl font-bold text-blue-600">
+                  {String(lastTicket?.queue_number || 0).padStart(3, '0')}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Nomor antrian: {lastTicket?.queue_number || 0}
+                <p className="text-xs text-gray-500 mt-2">
+                  Silakan menunggu panggilan
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-9 max-w-md mx-3 text-center shadow-2xl animate-in fade-in slide-in-from-bottom-5">
+            <div className="mb-4">
+              <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">Gagal</h3>
+              <p className="text-gray-600 mb-4">
+                {errorMessage}
+              </p>
+              <Button
+                onClick={() => setShowErrorModal(false)}
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                Tutup
+              </Button>
             </div>
           </div>
         </div>

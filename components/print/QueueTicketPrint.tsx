@@ -6,6 +6,8 @@ interface QueueTicketPrintProps {
   nrm: string;
   poli: string;
   doctor: string;
+  paymentMethod: string;
+  price?: number;
   date: string;
   time: string;
 }
@@ -16,6 +18,8 @@ export function QueueTicketPrint({
   nrm,
   poli,
   doctor,
+  paymentMethod,
+  price,
   date,
   time,
 }: QueueTicketPrintProps) {
@@ -38,7 +42,7 @@ export function QueueTicketPrint({
         }
       `}</style>
 
-      <div className="w-full max-w-[80mm] mx-auto p-4 border-2 border-dashed border-gray-800">
+      <div className="w-full max-w-[80mm] mx-auto p-4 border-2 border-gray-800">
         {/* Header */}
         <div className="text-center border-b-2 border-gray-800 pb-3 mb-3">
           <h1 className="text-lg font-bold uppercase">RUMAH SAKIT</h1>
@@ -53,22 +57,32 @@ export function QueueTicketPrint({
 
         {/* Patient Info */}
         <div className="space-y-2 text-sm mb-3">
-          <div className="flex border-b border-gray-300 pb-1">
+          <div className="flex border-b border-gray-200 pb-1">
             <span className="w-20 font-semibold">NRM:</span>
             <span className="flex-1">{nrm}</span>
           </div>
-          <div className="flex border-b border-gray-300 pb-1">
+          <div className="flex border-b border-gray-200 pb-1">
             <span className="w-20 font-semibold">Nama:</span>
             <span className="flex-1 uppercase">{patientName}</span>
           </div>
-          <div className="flex border-b border-gray-300 pb-1">
+          <div className="flex border-b border-gray-200 pb-1">
             <span className="w-20 font-semibold">Poli:</span>
             <span className="flex-1">{poli}</span>
           </div>
-          <div className="flex border-b border-gray-300 pb-1">
+          <div className="flex border-b border-gray-200 pb-1">
             <span className="w-20 font-semibold">Dokter:</span>
             <span className="flex-1">{doctor}</span>
           </div>
+          <div className="flex border-b border-gray-200 pb-1">
+            <span className="w-20 font-semibold">Cara Bayar:</span>
+            <span className="flex-1">{paymentMethod}</span>
+          </div>
+          {paymentMethod.toUpperCase().includes('UMUM') && price && price > 0 && (
+            <div className="flex border-b border-gray-200 pb-1">
+              <span className="w-20 font-semibold">Biaya:</span>
+              <span className="flex-1 font-bold text-blue-700">Rp {price.toLocaleString('id-ID')}</span>
+            </div>
+          )}
         </div>
 
         {/* Date & Time */}
@@ -78,7 +92,7 @@ export function QueueTicketPrint({
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-3 pt-3 border-t border-gray-300">
+        <div className="text-center mt-3 pt-3 border-t border-gray-200">
           <p className="text-xs text-gray-600">Harap menunggu panggilan</p>
           <p className="text-xs text-gray-600">Terima kasih</p>
         </div>

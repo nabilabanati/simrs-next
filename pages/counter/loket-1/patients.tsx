@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { CounterLayout } from '@/components/layout/CounterLayout';
 import { LoketLayout } from '@/components/layout/LoketLayout';
 import {
     Card,
@@ -26,11 +25,7 @@ import { toast } from 'sonner';
 
 export default function PatientsListPage() {
     const router = useRouter();
-    const { returnTo } = router.query;
-    
-    // Determine if accessed from loket
-    const isFromLoket = returnTo && (returnTo as string).includes('/loket-');
-    const loketId = isFromLoket ? parseInt((returnTo as string).match(/loket-(\d+)/)?.[1] || '1') : null;
+    const loketId = 1;
     
     const [patients, setPatients] = useState<any[]>([]);
     const [filteredData, setFilteredData] = useState<any[]>([]);
@@ -321,24 +316,17 @@ export default function PatientsListPage() {
             {/* Header */}
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        {isFromLoket && returnTo && (
-                            <Button
-                                variant="outline"
-                                onClick={() => router.push(returnTo as string)}
-                                className="flex items-center gap-2"
-                            >
-                                ← Kembali ke Loket {loketId}
-                            </Button>
-                        )}
+                        <Button
+                            variant="outline"
+                            onClick={() => router.push('/counter/loket-1')}
+                            className="flex items-center gap-2"
+                        >
+                            ← Kembali ke Loket 1
+                        </Button>
                         <h1 className="text-2xl font-bold text-blue-600 uppercase">Data Pasien</h1>
                     </div>
                     <Button
-                        onClick={() => {
-                            const url = returnTo 
-                                ? `/counter/patients/create?returnTo=${encodeURIComponent(returnTo as string)}`
-                                : '/counter/patients/create';
-                            router.push(url);
-                        }}
+                        onClick={() => router.push('/counter/loket-1/patients/create')}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                         <Plus className="w-4 h-4 mr-2" />
@@ -738,10 +726,5 @@ export default function PatientsListPage() {
             </div>
     );
 
-    // Render with appropriate layout
-    if (isFromLoket && loketId) {
-        return <LoketLayout loketId={loketId}>{renderContent()}</LoketLayout>;
-    }
-    
-    return <CounterLayout>{renderContent()}</CounterLayout>;
+    return <LoketLayout loketId={loketId}>{renderContent()}</LoketLayout>;
 }
