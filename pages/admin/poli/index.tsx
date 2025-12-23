@@ -26,6 +26,7 @@ export default function AdminPoliPage() {
         nama: "",
         kode: "",
         harga_daftar: "",
+        kuota_harian: "",
     });
 
     useEffect(() => {
@@ -80,6 +81,7 @@ export default function AdminPoliPage() {
                     nama: formData.nama,
                     kode: formData.kode || null,
                     harga_daftar: parseInt(formData.harga_daftar),
+                    kuota_harian: formData.kuota_harian ? parseInt(formData.kuota_harian) : null,
                 }),
             });
 
@@ -87,7 +89,7 @@ export default function AdminPoliPage() {
             if (res.ok) {
                 toast.success("Poli berhasil ditambahkan");
                 setIsCreateModalOpen(false);
-                setFormData({ nama: "", kode: "", harga_daftar: "" });
+                setFormData({ nama: "", kode: "", harga_daftar: "", kuota_harian: "" });
                 fetchPolis();
             } else {
                 toast.error(json.error || "Gagal menambahkan poli");
@@ -112,6 +114,7 @@ export default function AdminPoliPage() {
                     nama: formData.nama,
                     kode: formData.kode || null,
                     harga_daftar: parseInt(formData.harga_daftar),
+                    kuota_harian: formData.kuota_harian ? parseInt(formData.kuota_harian) : null,
                 }),
             });
 
@@ -120,7 +123,7 @@ export default function AdminPoliPage() {
                 toast.success("Poli berhasil diupdate");
                 setIsEditModalOpen(false);
                 setCurrentPoli(null);
-                setFormData({ nama: "", kode: "", harga_daftar: "" });
+                setFormData({ nama: "", kode: "", harga_daftar: "", kuota_harian: "" });
                 fetchPolis();
             } else {
                 toast.error(json.error || "Gagal mengupdate poli");
@@ -165,6 +168,7 @@ export default function AdminPoliPage() {
             nama: poli.nama,
             kode: poli.kode || "",
             harga_daftar: poli.harga_daftar?.toString() || "",
+            kuota_harian: poli.kuota_harian?.toString() || "",
         });
         setIsEditModalOpen(true);
     };
@@ -198,6 +202,7 @@ export default function AdminPoliPage() {
                                         <TableHead>Nama Poli</TableHead>
                                         <TableHead>Kode</TableHead>
                                         <TableHead>Harga Daftar</TableHead>
+                                        <TableHead>Kuota Harian</TableHead>
                                         <TableHead className="text-center">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -221,6 +226,9 @@ export default function AdminPoliPage() {
                                                 <TableCell>{poli.kode || "-"}</TableCell>
                                                 <TableCell>
                                                     Rp {poli.harga_daftar?.toLocaleString("id-ID") || 0}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {poli.kuota_harian ? `${poli.kuota_harian} pasien/hari` : "Unlimited"}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex justify-center gap-2">
@@ -299,6 +307,19 @@ export default function AdminPoliPage() {
                                         required
                                     />
                                 </div>
+                                <div>
+                                    <Label htmlFor="kuota">Kuota Harian</Label>
+                                    <Input
+                                        id="kuota"
+                                        type="number"
+                                        value={formData.kuota_harian}
+                                        onChange={(e) => setFormData({ ...formData, kuota_harian: e.target.value })}
+                                        placeholder="Kosongkan untuk unlimited"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Batas maksimal pasien per hari. Kosongkan untuk tidak ada batasan.
+                                    </p>
+                                </div>
                             </div>
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
@@ -348,6 +369,19 @@ export default function AdminPoliPage() {
                                         onChange={(e) => setFormData({ ...formData, harga_daftar: e.target.value })}
                                         required
                                     />
+                                </div>
+                                <div>
+                                    <Label htmlFor="edit-kuota">Kuota Harian</Label>
+                                    <Input
+                                        id="edit-kuota"
+                                        type="number"
+                                        value={formData.kuota_harian}
+                                        onChange={(e) => setFormData({ ...formData, kuota_harian: e.target.value })}
+                                        placeholder="Kosongkan untuk unlimited"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Batas maksimal pasien per hari. Kosongkan untuk tidak ada batasan.
+                                    </p>
                                 </div>
                             </div>
                             <DialogFooter>

@@ -42,6 +42,11 @@ export default function PatientDetailPage() {
         village: ''
     });
 
+    // Wait for router to be ready to prevent layout flicker
+    if (!router.isReady) {
+        return null; // or a minimal loading spinner
+    }
+
     useEffect(() => {
         if (id) {
             fetchPatient();
@@ -60,14 +65,17 @@ export default function PatientDetailPage() {
             if (error) throw error;
             setPatient(data);
             
+            // Set loading to false IMMEDIATELY to display patient data
+            setLoading(false);
+            
+            // Fetch additional data in background (non-blocking)
             if (data) {
-                await fetchRegionNames(data);
-                await fetchPenjaminData(data.id);
-                await fetchVisits(data.id);
+                fetchRegionNames(data); // Lazy load - non-blocking
+                fetchPenjaminData(data.id);
+                fetchVisits(data.id);
             }
         } catch (error) {
             console.error('Error fetching patient:', error);
-        } finally {
             setLoading(false);
         }
     };
@@ -302,7 +310,12 @@ export default function PatientDetailPage() {
                 <div className="text-center py-12">
                     <p className="text-gray-600">Pasien tidak ditemukan</p>
                     <Button
-                        onClick={() => router.push(returnTo as string || '/counter/patients')}
+                        onClick={() => {
+                            const url = returnTo 
+                                ? `/counter/patients?returnTo=${encodeURIComponent(returnTo as string)}`
+                                : '/counter/patients';
+                            router.push(url);
+                        }}
                         className="mt-4"
                     >
                         Kembali ke Daftar Pasien
@@ -501,7 +514,12 @@ export default function PatientDetailPage() {
                             Cetak Identitas
                         </Button>
                         <Button
-                            onClick={() => router.push(`/counter/patients/edit/${id}`)}
+                            onClick={() => {
+                                const url = returnTo 
+                                    ? `/counter/patients/edit/${id}?returnTo=${encodeURIComponent(returnTo as string)}`
+                                    : `/counter/patients/edit/${id}`;
+                                router.push(url);
+                            }}
                             className="bg-blue-500 hover:bg-blue-600 text-white"
                         >
                             <Pencil className="w-4 h-4 mr-2" />

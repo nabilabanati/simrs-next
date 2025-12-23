@@ -128,15 +128,32 @@ export default function CreatePatientPage() {
     generateNRM();
   }, []);
 
-  // Load provinces on mount
+  // Load provinces on mount with cache
   useEffect(() => {
     const loadProvinces = async () => {
       try {
+        const cached = localStorage.getItem('provinces_cache');
+        const cacheTime = localStorage.getItem('provinces_cache_time');
+        
+        if (cached && cacheTime) {
+          const age = Date.now() - parseInt(cacheTime);
+          if (age < 24 * 60 * 60 * 1000) {
+            console.log('✅ Using cached provinces');
+            setProvinces(JSON.parse(cached));
+            return;
+          }
+        }
+        
+        console.log('🌐 Fetching provinces from API');
         const response = await fetch('/api/regions/provinces');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        
+        localStorage.setItem('provinces_cache', JSON.stringify(data));
+        localStorage.setItem('provinces_cache_time', Date.now().toString());
+        
         setProvinces(data);
       } catch (error) {
         console.error('Error loading provinces:', error);
@@ -145,13 +162,34 @@ export default function CreatePatientPage() {
     loadProvinces();
   }, []);
 
-  // Load cities when province changes
+  // Load cities when province changes with cache
   useEffect(() => {
     if (formData.provinsi) {
       const loadCities = async () => {
         try {
+          const cacheKey = `cities_cache_${formData.provinsi}`;
+          const cached = localStorage.getItem(cacheKey);
+          const cacheTime = localStorage.getItem(`${cacheKey}_time`);
+          
+          if (cached && cacheTime) {
+            const age = Date.now() - parseInt(cacheTime);
+            if (age < 24 * 60 * 60 * 1000) {
+              console.log('✅ Using cached cities');
+              setCities(JSON.parse(cached));
+              setFormData((prev) => ({ ...prev, kabupaten: '', kecamatan: '', desa: '', kodePos: '' }));
+              setDistricts([]);
+              setVillages([]);
+              return;
+            }
+          }
+          
+          console.log('🌐 Fetching cities from API');
           const response = await fetch(`/api/regions/regencies?province_id=${formData.provinsi}`);
           const data = await response.json();
+          
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+          localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+          
           setCities(data);
           setFormData((prev) => ({ ...prev, kabupaten: '', kecamatan: '', desa: '', kodePos: '' }));
           setDistricts([]);
@@ -164,13 +202,33 @@ export default function CreatePatientPage() {
     }
   }, [formData.provinsi]);
 
-  // Load districts when city changes
+  // Load districts when city changes with cache
   useEffect(() => {
     if (formData.kabupaten) {
       const loadDistricts = async () => {
         try {
+          const cacheKey = `districts_cache_${formData.kabupaten}`;
+          const cached = localStorage.getItem(cacheKey);
+          const cacheTime = localStorage.getItem(`${cacheKey}_time`);
+          
+          if (cached && cacheTime) {
+            const age = Date.now() - parseInt(cacheTime);
+            if (age < 24 * 60 * 60 * 1000) {
+              console.log('✅ Using cached districts');
+              setDistricts(JSON.parse(cached));
+              setFormData((prev) => ({ ...prev, kecamatan: '', desa: '', kodePos: '' }));
+              setVillages([]);
+              return;
+            }
+          }
+          
+          console.log('🌐 Fetching districts from API');
           const response = await fetch(`/api/regions/districts?regency_id=${formData.kabupaten}`);
           const data = await response.json();
+          
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+          localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+          
           setDistricts(data);
           setFormData((prev) => ({ ...prev, kecamatan: '', desa: '', kodePos: '' }));
           setVillages([]);
@@ -182,13 +240,31 @@ export default function CreatePatientPage() {
     }
   }, [formData.kabupaten]);
 
-  // Load villages when district changes
+  // Load villages when district changes with cache
   useEffect(() => {
     if (formData.kecamatan) {
       const loadVillages = async () => {
         try {
+          const cacheKey = `villages_cache_${formData.kecamatan}`;
+          const cached = localStorage.getItem(cacheKey);
+          const cacheTime = localStorage.getItem(`${cacheKey}_time`);
+          
+          if (cached && cacheTime) {
+            const age = Date.now() - parseInt(cacheTime);
+            if (age < 24 * 60 * 60 * 1000) {
+              console.log('✅ Using cached villages');
+              setVillages(JSON.parse(cached));
+              return;
+            }
+          }
+          
+          console.log('🌐 Fetching villages from API');
           const response = await fetch(`/api/regions/villages?district_id=${formData.kecamatan}`);
           const data = await response.json();
+          
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+          localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+          
           setVillages(data);
         } catch (error) {
           console.error('Error loading villages:', error);
@@ -830,7 +906,7 @@ export default function CreatePatientPage() {
                 <div className="flex justify-end gap-3 lg:col-span-2 pt-6 border-t">
                   <Button
                     type="button"
-                    onClick={() => router.push('/counter/patients')}
+                    onClick={() => router.push(returnTo as string || '/counter/patients')}
                     className="px-6 bg-red-500 hover:bg-red-600 text-white"
                   >
                     Batal

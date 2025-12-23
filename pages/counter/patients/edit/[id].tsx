@@ -87,12 +87,39 @@ export default function EditPatientPage() {
         catatan_khusus: '',
     });
 
-    // Load provinces on mount
+    // Wait for router to be ready to prevent layout flicker
+    if (!router.isReady) {
+        return null;
+    }
+
+    // Load provinces on mount with cache
     useEffect(() => {
         const loadProvinces = async () => {
             try {
+                // Check cache first
+                const cached = localStorage.getItem('provinces_cache');
+                const cacheTime = localStorage.getItem('provinces_cache_time');
+                
+                if (cached && cacheTime) {
+                    const age = Date.now() - parseInt(cacheTime);
+                    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+                    
+                    if (age < maxAge) {
+                        console.log('✅ Using cached provinces');
+                        setProvinces(JSON.parse(cached));
+                        return;
+                    }
+                }
+                
+                // Fetch fresh data
+                console.log('🌐 Fetching provinces from API');
                 const response = await fetch('/api/regions/provinces');
                 const data = await response.json();
+                
+                // Save to cache
+                localStorage.setItem('provinces_cache', JSON.stringify(data));
+                localStorage.setItem('provinces_cache_time', Date.now().toString());
+                
                 setProvinces(data);
             } catch (error) {
                 console.error('Error loading provinces:', error);
@@ -107,13 +134,31 @@ export default function EditPatientPage() {
         }
     }, [id]);
 
-    // Load cities when province changes
+    // Load cities when province changes with cache
     useEffect(() => {
         if (formData.province_id) {
             const loadCities = async () => {
                 try {
+                    const cacheKey = `cities_cache_${formData.province_id}`;
+                    const cached = localStorage.getItem(cacheKey);
+                    const cacheTime = localStorage.getItem(`${cacheKey}_time`);
+                    
+                    if (cached && cacheTime) {
+                        const age = Date.now() - parseInt(cacheTime);
+                        if (age < 24 * 60 * 60 * 1000) {
+                            console.log('✅ Using cached cities');
+                            setCities(JSON.parse(cached));
+                            return;
+                        }
+                    }
+                    
+                    console.log('🌐 Fetching cities from API');
                     const response = await fetch(`/api/regions/regencies?province_id=${formData.province_id}`);
                     const data = await response.json();
+                    
+                    localStorage.setItem(cacheKey, JSON.stringify(data));
+                    localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+                    
                     setCities(data);
                 } catch (error) {
                     console.error('Error loading cities:', error);
@@ -123,13 +168,31 @@ export default function EditPatientPage() {
         }
     }, [formData.province_id]);
 
-    // Load districts when city changes
+    // Load districts when city changes with cache
     useEffect(() => {
         if (formData.regency_id) {
             const loadDistricts = async () => {
                 try {
+                    const cacheKey = `districts_cache_${formData.regency_id}`;
+                    const cached = localStorage.getItem(cacheKey);
+                    const cacheTime = localStorage.getItem(`${cacheKey}_time`);
+                    
+                    if (cached && cacheTime) {
+                        const age = Date.now() - parseInt(cacheTime);
+                        if (age < 24 * 60 * 60 * 1000) {
+                            console.log('✅ Using cached districts');
+                            setDistricts(JSON.parse(cached));
+                            return;
+                        }
+                    }
+                    
+                    console.log('🌐 Fetching districts from API');
                     const response = await fetch(`/api/regions/districts?regency_id=${formData.regency_id}`);
                     const data = await response.json();
+                    
+                    localStorage.setItem(cacheKey, JSON.stringify(data));
+                    localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+                    
                     setDistricts(data);
                 } catch (error) {
                     console.error('Error loading districts:', error);
@@ -139,13 +202,31 @@ export default function EditPatientPage() {
         }
     }, [formData.regency_id]);
 
-    // Load villages when district changes
+    // Load villages when district changes with cache
     useEffect(() => {
         if (formData.district_id) {
             const loadVillages = async () => {
                 try {
+                    const cacheKey = `villages_cache_${formData.district_id}`;
+                    const cached = localStorage.getItem(cacheKey);
+                    const cacheTime = localStorage.getItem(`${cacheKey}_time`);
+                    
+                    if (cached && cacheTime) {
+                        const age = Date.now() - parseInt(cacheTime);
+                        if (age < 24 * 60 * 60 * 1000) {
+                            console.log('✅ Using cached villages');
+                            setVillages(JSON.parse(cached));
+                            return;
+                        }
+                    }
+                    
+                    console.log('🌐 Fetching villages from API');
                     const response = await fetch(`/api/regions/villages?district_id=${formData.district_id}`);
                     const data = await response.json();
+                    
+                    localStorage.setItem(cacheKey, JSON.stringify(data));
+                    localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+                    
                     setVillages(data);
                 } catch (error) {
                     console.error('Error loading villages:', error);
@@ -342,7 +423,9 @@ export default function EditPatientPage() {
             }
 
             toast.success('Data pasien berhasil diupdate');
-            const redirectUrl = returnTo as string || '/counter/patients';
+            const redirectUrl = returnTo 
+                ? `/counter/patients?returnTo=${encodeURIComponent(returnTo as string)}`
+                : '/counter/patients';
             router.push(redirectUrl);
         } catch (error) {
             console.error('Error updating patient:', error);
@@ -821,7 +904,12 @@ export default function EditPatientPage() {
                             <div className="flex gap-3 justify-end pt-6 border-t">
                                 <Button
                                     type="button"
-                                    onClick={() => router.push('/counter/patients')}
+                                    onClick={() => {
+                                        const url = returnTo 
+                                            ? `/counter/patients?returnTo=${encodeURIComponent(returnTo as string)}`
+                                            : '/counter/patients';
+                                        router.push(url);
+                                    }}
                                     className="px-6 bg-red-500 hover:bg-red-600 text-white"
                                 >
                                     Batal

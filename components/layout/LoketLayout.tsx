@@ -71,6 +71,29 @@ export function LoketLayout({ children, loketId }: LoketLayoutProps) {
           </div>
         )}
 
+        {/* Navigation Menu */}
+        <nav className="flex-1 p-4 space-y-2">
+          <Button
+            variant={router.pathname === `/counter/loket-${loketId}` ? 'default' : 'ghost'}
+            className="w-full justify-start"
+            onClick={() => router.push(`/counter/loket-${loketId}`)}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            Dashboard Loket
+          </Button>
+          
+          <Button
+            variant={router.pathname.includes('/counter/patients') ? 'default' : 'ghost'}
+            className="w-full justify-start"
+            onClick={() => router.push(`/counter/patients?returnTo=/counter/loket-${loketId}`)}
+          >
+            <User className="w-4 h-4 mr-2" />
+            Data Pasien
+          </Button>
+        </nav>
+
         {/* Spacer */}
         <div className="flex-1" />
 
@@ -88,7 +111,7 @@ export function LoketLayout({ children, loketId }: LoketLayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto p-10">
         {children}
       </div>
     </div>
