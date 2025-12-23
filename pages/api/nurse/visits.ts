@@ -16,7 +16,14 @@ export default async function handler(
             return res.status(400).json({ error: 'poli_id is required' });
         }
 
-        // Get all visits for this poli
+        // Get today's date range (start and end of day)
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+
+        // Get visits for this poli TODAY ONLY
         const { data: visits, error } = await supabaseServer
             .from('visits')
             .select(`
@@ -40,6 +47,7 @@ export default async function handler(
         ),
         triase (
           id,
+          perawat_id,
           tensi,
           nadi,
           suhu,
@@ -50,6 +58,8 @@ export default async function handler(
         )
       `)
             .eq('poli_id', poli_id)
+            .gte('created_at', start.toISOString())
+            .lte('created_at', end.toISOString())
             .order('ttv_status', { ascending: true }) // belum first
             .order('created_at', { ascending: true });
 

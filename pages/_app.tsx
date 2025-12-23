@@ -3,7 +3,6 @@ import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import Link from "next/link";
-import DoctorNavbar from "@/components/layout/DoctorNavbar";
 import { useEffect, useState } from "react";
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -69,17 +68,18 @@ export default function App({ Component, pageProps }: AppProps) {
   // Route prefixes that should not use the layout (e.g. public display and queue pages)
   const noLayoutPrefixes = ["/login", "/register", "/loket-antrian", "/queue", "/counter"];
   const doctorRoutes = router.pathname.startsWith("/doctor");
+  const nurseRoutes = router.pathname.startsWith("/nurse");
 
-  const shouldUseLayout = !noLayoutPrefixes.some((prefix) => router.pathname.startsWith(prefix)) && !doctorRoutes;
+  const shouldUseLayout = !noLayoutPrefixes.some((prefix) => router.pathname.startsWith(prefix)) && !doctorRoutes && !nurseRoutes;
 
-  // Doctor pages with navbar
+  // Doctor pages without navbar (only sidebar from DoctorLayout)
   if (doctorRoutes) {
-    return (
-      <>
-        <DoctorNavbar userName={user?.nama} />
-        <Component {...pageProps} />
-      </>
-    );
+    return <Component {...pageProps} />;
+  }
+
+  // Nurse pages without navbar (only sidebar from NurseLayout)
+  if (nurseRoutes) {
+    return <Component {...pageProps} />;
   }
 
   // Other pages with sidebar

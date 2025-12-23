@@ -6,6 +6,12 @@ import {
     LayoutDashboard,
     Users,
     LogOut,
+<<<<<<< HEAD
+=======
+    Menu,
+    X,
+    Receipt,
+>>>>>>> 5e6cb2d6aef843d5c8cd3b57915e1468006536a9
 } from "lucide-react";
 
 interface CounterLayoutProps {
@@ -15,6 +21,7 @@ interface CounterLayoutProps {
 const menuItems = [
     { href: "/counter", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/counter/patients", icon: Users, label: "Pasien" },
+    { href: "/cashier/payment-verification", icon: Receipt, label: "Verifikasi Pembayaran" },
 ];
 
 export function CounterLayout({ children }: CounterLayoutProps) {
@@ -49,6 +56,7 @@ export function CounterLayout({ children }: CounterLayoutProps) {
                     )}
                 </div>
 
+<<<<<<< HEAD
                 {/* Navigation */}
                 <nav className="p-4">
                     <ul className="space-y-2">
@@ -75,6 +83,34 @@ export function CounterLayout({ children }: CounterLayoutProps) {
                         })}
                     </ul>
                 </nav>
+=======
+                    {/* Navigation */}
+                    <nav className="flex-1 p-4 overflow-y-auto">
+                        <ul className="space-y-2">
+                            {menuItems.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = router.pathname === item.href ||
+                                    (item.href === "/counter/patients" && router.pathname.startsWith("/counter/patients"));
+                                return (
+                                    <li key={item.href}>
+                                        <Link
+                                            href={item.href}
+                                            className={cn(
+                                                "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
+                                                isActive
+                                                    ? "bg-blue-600 text-white shadow-lg"
+                                                    : "text-blue-200 hover:bg-blue-700 hover:text-white"
+                                            )}
+                                        >
+                                            <Icon className="h-5 w-5" />
+                                            <span className="font-medium">{item.label}</span>
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </nav>
+>>>>>>> 5e6cb2d6aef843d5c8cd3b57915e1468006536a9
 
                 {/* Spacer - Push logout to bottom */}
                 <div className="flex-1"></div>

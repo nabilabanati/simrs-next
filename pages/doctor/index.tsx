@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/router"
 import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
 
 import DoctorLayout from "@/components/layout/DoctorLayout"
 import DashboardHeader from "@/components/dashboard/poli/DashboardHeader"
@@ -16,11 +17,12 @@ export default function DoctorDashboard() {
     // User & Doctor State
     const [user, setUser] = useState<any>(null)
     const [doctorName, setDoctorName] = useState("")
-    const [poliName, setPoliName] = useState("Poli")
+    const [poliName, setPoliName] = useState("")
 
     // Data State
     const [visits, setVisits] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [refreshing, setRefreshing] = useState(false)
 
     // UI State
     const [query, setQuery] = useState("")
@@ -35,6 +37,9 @@ export default function DoctorDashboard() {
         const u = JSON.parse(localStorage.getItem("user") || "null")
 
         if (!u || u.role !== "dokter") {
+            if (u && u.role !== "dokter") {
+                toast.error("Akses ditolak. Anda bukan dokter.")
+            }
             router.push("/login")
             return
         }
@@ -51,24 +56,34 @@ export default function DoctorDashboard() {
                 year: "numeric",
             })
         )
-        setTimeString(now.toLocaleTimeString("id-ID"))
+        setTimeString(
+            now.toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+            })
+        )
     }, [router])
 
-    // ================= FETCH DATA =================
+    // ================= FETCH: Doctor Visits =================
     useEffect(() => {
-        if (!user?.id) return
+        if (!user) return
+
         fetchDoctorVisits()
 
-        // Auto-refresh every 30 seconds
+        // Auto-refresh every 5 seconds (smooth refresh)
         const interval = setInterval(() => {
-            fetchDoctorVisits()
-        }, 30000)
+            fetchDoctorVisits(true)
+        }, 5000)
 
         return () => clearInterval(interval)
     }, [user])
 
-    async function fetchDoctorVisits() {
-        setLoading(true)
+    async function fetchDoctorVisits(isRefresh = false) {
+        if (isRefresh) {
+            setRefreshing(true)
+        } else {
+            setLoading(true)
+        }
 
         try {
             // 1. Get doctor data
@@ -141,12 +156,20 @@ export default function DoctorDashboard() {
                 status: v.status === "selesai" ? "completed" : "waiting",
             }))
 
+            // Sort: waiting visits first, completed visits last
+            formatted.sort((a, b) => {
+                if (a.status === 'waiting' && b.status === 'completed') return -1
+                if (a.status === 'completed' && b.status === 'waiting') return 1
+                return 0
+            })
+
             setVisits(formatted)
         } catch (error) {
-            console.error("Error:", error)
+            console.error("Error in fetchDoctorVisits:", error)
             setVisits([])
         } finally {
             setLoading(false)
+            setRefreshing(false)
         }
     }
 
@@ -181,17 +204,18 @@ export default function DoctorDashboard() {
     // ================= RENDER =================
     return (
         <DoctorLayout>
-            <div className="min-h-screen bg-gray-50">
-                <div className="p-6">
+            <div className="min-h-screen bg-white">
+                <div className="px-12 pb-12 py-12 pr-12 pl-12 pt-16">
                     <Breadcrumb
                         items={[
-                            { label: `Poli ${poliName}` },
+                            { label: `${poliName}` },
                             { label: "Dashboard Dokter" },
                         ]}
                     />
 
                     <DashboardHeader
-                        doctorName={doctorName}
+                        title="Dashboard Dokter"
+                        userName={doctorName}
                         greeting="Selamat Datang"
                     />
 

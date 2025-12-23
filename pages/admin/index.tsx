@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdminDashboard() {
     const router = useRouter();
@@ -14,21 +15,27 @@ export default function AdminDashboard() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        // Token is in HttpOnly cookie, so we only check user data in localStorage
         const user = localStorage.getItem("user");
 
-        if (!token || !user) {
+        if (!user) {
             router.push("/login");
             return;
         }
 
-        const userData = JSON.parse(user);
-        if (userData.role !== "superadmin") {
-            router.push("/login");
-            return;
-        }
+        try {
+            const userData = JSON.parse(user);
+            if (userData.role !== "superadmin") {
+                toast.error("Akses ditolak. Anda bukan superadmin.");
+                router.push("/login");
+                return;
+            }
 
-        setIsAuthenticated(true);
+            setIsAuthenticated(true);
+        } catch (error) {
+            console.error("Error parsing user data:", error);
+            router.push("/login");
+        }
     }, [router]);
 
     if (!isAuthenticated) {

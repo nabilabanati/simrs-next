@@ -2,15 +2,17 @@ import { useState, useEffect } from "react"
 import { getFormattedDateTime } from "@/lib/shared/utils"
 
 interface DashboardHeaderProps {
-  doctorName?: string
+  title?: string
+  userName?: string
   greeting?: string
 }
 
 export default function DashboardHeader({
-  doctorName = "Dokter",
+  title = "Dashboard",
+  userName = "User",
   greeting = "Selamat Datang",
 }: DashboardHeaderProps) {
-  
+
   const [dateTime, setDateTime] = useState(() => getFormattedDateTime())
 
   useEffect(() => {
@@ -25,10 +27,10 @@ export default function DashboardHeader({
     <div className="mb-6 flex justify-between items-center">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">
-          Dashboard Dokter
+          {title}
         </h1>
         <h2 className="text-2xl font-bold text-blue-600 mt-1">
-          {greeting}, {doctorName}!
+          {greeting}, {userName}!
         </h2>
       </div>
 

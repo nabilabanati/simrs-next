@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseServer } from "@/lib/supabase/server";
 import { fail, ok } from "@/lib/api/respond";
 import { signToken } from "@/lib/auth/jwt";
+import crypto from "crypto";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return fail(res, "Method not allowed", 405);
@@ -51,23 +52,71 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   console.log("✅ Login successful");
 
+  // === SESSION MANAGEMENT ===
+  // 1. Invalidate all existing active sessions for this user (single session enforcement)
+  const { error: invalidateError } = await supabaseServer
+    .from('sessions')
+    .update({ is_active: false })
+    .eq('user_id', user.id)
+    .eq('is_active', true);
+
+  if (invalidateError) {
+    console.log("⚠️ Warning: Could not invalidate old sessions:", invalidateError.message);
+  }
+
+  // 2. Create new session
+  const sessionToken = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 20 * 60 * 60 * 1000); // 20 hours from now
+
+  const { data: session, error: sessionError } = await supabaseServer
+    .from('sessions')
+    .insert({
+      user_id: user.id,
+      session_token: sessionToken,
+      device_info: req.headers['user-agent'] || 'Unknown',
+      ip_address: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'Unknown',
+      expires_at: expiresAt.toISOString(),
+      is_active: true
+    })
+    .select()
+    .single();
+
+  if (sessionError || !session) {
+    console.log("❌ Failed to create session:", sessionError?.message);
+    return fail(res, "Failed to create session", 500);
+  }
+
+  console.log("✅ Session created:", session.id);
+
+  // 3. Create JWT with session ID
   const payload = {
     id: user.id,
     role: user.role,
     username: user.username,
     nama: user.nama,
+    sessionId: session.id
   };
 
-  const token = signToken(payload);
+  const token = signToken(payload, "20h");
 
-  // Set HTTP-only cookie for middleware authentication
+  // 4. Set HTTP-only cookie with 20-hour expiry
+  const cookieMaxAge = 20 * 60 * 60; // 72000 seconds = 20 hours
   res.setHeader(
     "Set-Cookie",
-    `token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${7 * 24 * 60 * 60}`
+    `token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${cookieMaxAge}`
   );
 
   // avoid sending password back
   delete (user as any).password;
 
-  return ok(res, { token, user: { id: user.id, username: user.username, nama: user.nama, role: user.role } });
+  return ok(res, {
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      nama: user.nama,
+      role: user.role
+    },
+    sessionExpiresAt: expiresAt.toISOString()
+  });
 }

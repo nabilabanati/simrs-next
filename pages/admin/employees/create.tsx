@@ -23,28 +23,31 @@ export default function CreateEmployeePage() {
     });
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
         const user = localStorage.getItem("user");
 
-        if (!token || !user) {
+        if (!user) {
             router.push("/login");
             return;
         }
 
-        const userData = JSON.parse(user);
-        if (userData.role !== "superadmin") {
-            router.push("/login");
-            return;
-        }
+        try {
+            const userData = JSON.parse(user);
+            if (userData.role !== "superadmin") {
+                router.push("/login");
+                return;
+            }
 
-        fetchPolis();
+            fetchPolis();
+        } catch (error) {
+            console.error("Error parsing user data:", error);
+            router.push("/login");
+        }
     }, [router]);
 
     const fetchPolis = async () => {
         try {
-            const token = localStorage.getItem("token");
             const res = await fetch("/api/master/poli", {
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: 'include',
             });
             const json = await res.json();
             setPolis(json.data || []);
@@ -68,13 +71,12 @@ export default function CreateEmployeePage() {
 
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
             const res = await fetch("/api/admin/employees", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
                 },
+                credentials: 'include',
                 body: JSON.stringify(formData),
             });
 

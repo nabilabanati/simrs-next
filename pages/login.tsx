@@ -18,15 +18,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    // Check if already logged in
-    const token = localStorage.getItem("token");
+    // Check if already logged in (user data exists)
+    // Token is in HttpOnly cookie, so we don't check localStorage for it
     const user = localStorage.getItem("user");
 
-    if (token && user) {
+    if (user) {
       const userData = JSON.parse(user);
       redirectByRole(userData.role);
     }
-  }, []);
+  }, [router]);
 
   const redirectByRole = (role: string) => {
     const redirectMap: Record<string, string> = {
@@ -54,14 +54,17 @@ export default function LoginPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
+        credentials: "include", // Important: include cookies
       });
 
       const json = await res.json();
 
       if (res.ok && json.data) {
-        // Save token and user to localStorage
-        localStorage.setItem("token", json.data.token);
+        // Token is now in HttpOnly cookie, no need to store in localStorage
+        // Only store user info (non-sensitive data)
         localStorage.setItem("user", JSON.stringify(json.data.user));
+
+        console.log("✅ Login successful, session expires at:", json.data.sessionExpiresAt);
 
         // Redirect based on role
         redirectByRole(json.data.user.role);
