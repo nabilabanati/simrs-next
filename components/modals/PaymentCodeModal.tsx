@@ -56,7 +56,7 @@ export default function PaymentCodeModal({ open, onClose, visitId }: PaymentCode
                 .eq('visit_id', visitId)
                 .order('created_at', { ascending: false })
                 .limit(1)
-                .single()
+                .maybeSingle()
 
             // If code exists (used or not), show it
             if (existingCode) {
