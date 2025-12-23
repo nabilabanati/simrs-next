@@ -65,46 +65,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(500).json({ error: 'Failed to generate payment code' })
         }
 
-        // ========== CREATE INVOICE ==========
-        // Get accumulated invoice data (visit + prescription)
-        const { data: invoiceData, error: invoiceError } = await supabase
-            .rpc('get_accumulated_invoice', { p_visit_id: visit_id })
-
-        if (invoiceError) {
-            console.error('Error getting invoice data:', invoiceError)
-            // Continue even if invoice calculation fails
-        }
-
-        // Create invoice if it doesn't exist
-        const { data: existingInvoice } = await supabase
-            .from('invoices')
-            .select('id')
-            .eq('visit_id', visit_id)
-            .single()
-
-        if (!existingInvoice && invoiceData && invoiceData.length > 0) {
-            const invoice = invoiceData[0]
-
-            // Insert invoice
-            const { error: invoiceInsertError } = await supabase
-                .from('invoices')
-                .insert({
-                    visit_id,
-                    prescription_id: invoice.prescription_id || null,
-                    total: invoice.grand_total || 0,
-                    paid: false,
-                    includes_referral_fees: invoice.includes_referral_fees || false,
-                    referral_poli_fee: invoice.referral_poli_fee || null
-                })
-
-            if (invoiceInsertError) {
-                console.error('Error creating invoice:', invoiceInsertError)
-                // Continue even if invoice creation fails
-            } else {
-                console.log('✅ Invoice created for visit:', visit_id)
-            }
-        }
-
         return res.status(200).json({
             success: true,
             code: paymentCode.code,
