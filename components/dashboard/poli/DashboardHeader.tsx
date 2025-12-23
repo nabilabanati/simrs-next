@@ -13,9 +13,14 @@ export default function DashboardHeader({
   greeting = "Selamat Datang",
 }: DashboardHeaderProps) {
 
-  const [dateTime, setDateTime] = useState(() => getFormattedDateTime())
+  const [dateTime, setDateTime] = useState<{ dateString: string; timeString: string } | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    // Set mounted flag and initial time on client-side only
+    setMounted(true)
+    setDateTime(getFormattedDateTime())
+
     const interval = setInterval(() => {
       setDateTime(getFormattedDateTime())
     }, 1000)
@@ -36,10 +41,10 @@ export default function DashboardHeader({
 
       <div className="text-right">
         <div className="text-lg font-semibold text-gray-800">
-          {dateTime.dateString}
+          {dateTime?.dateString || '—'}
         </div>
         <div className="text-sm text-gray-600">
-          {dateTime.timeString}
+          {dateTime?.timeString || '—'}
         </div>
       </div>
     </div>
