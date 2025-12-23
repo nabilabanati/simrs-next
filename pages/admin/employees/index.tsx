@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, UserPlus, MapPin, Pencil } from "lucide-react";
+import { Search, UserPlus, MapPin, Pencil, Users, Trash2 } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -29,6 +29,14 @@ export default function AdminEmployeesPage() {
     const [polis, setPolis] = useState<any[]>([]);
     const [selectedPoliId, setSelectedPoliId] = useState<string>("");
 
+    // Loket assignment states
+    const [activeMainTab, setActiveMainTab] = useState<'employees' | 'assignments'>('employees');
+    const [assignments, setAssignments] = useState<any[]>([]);
+    const [loketUsers, setLoketUsers] = useState<any[]>([]);
+    const [selectedUserId, setSelectedUserId] = useState<string>("");
+    const [selectedLoketId, setSelectedLoketId] = useState<string>("");
+    const [loadingAssignments, setLoadingAssignments] = useState(false);
+
     useEffect(() => {
         const user = localStorage.getItem("user");
 
@@ -46,6 +54,8 @@ export default function AdminEmployeesPage() {
 
             fetchEmployees();
             fetchPolis();
+            fetchAssignments();
+            fetchLoketUsers();
         } catch (error) {
             console.error("Error parsing user data:", error);
             router.push("/login");
@@ -174,6 +184,91 @@ export default function AdminEmployeesPage() {
         }
     };
 
+    const fetchAssignments = async () => {
+        setLoadingAssignments(true);
+        try {
+            const res = await fetch('/api/admin/loket-assignments', {
+                credentials: 'include',
+            });
+            const data = await res.json();
+            if (data.success) {
+                setAssignments(data.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching assignments:', error);
+        } finally {
+            setLoadingAssignments(false);
+        }
+    };
+
+    const fetchLoketUsers = async () => {
+        try {
+            const res = await fetch('/api/admin/employees?role=loket', {
+                credentials: 'include',
+            });
+            const data = await res.json();
+            if (data.success) {
+                setLoketUsers(data.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching loket users:', error);
+        }
+    };
+
+    const handleAssign = async () => {
+        if (!selectedUserId || !selectedLoketId) {
+            toast.error('Pilih user dan loket terlebih dahulu');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/loket-assignments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    user_id: selectedUserId,
+                    loket_id: parseInt(selectedLoketId),
+                }),
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                toast.success('Assignment berhasil dibuat');
+                setSelectedUserId('');
+                setSelectedLoketId('');
+                fetchAssignments();
+            } else {
+                toast.error(data.error || 'Gagal membuat assignment');
+            }
+        } catch (error) {
+            console.error('Error creating assignment:', error);
+            toast.error('Terjadi kesalahan');
+        }
+    };
+
+    const handleDeleteAssignment = async (id: string) => {
+        if (!confirm('Hapus assignment ini?')) return;
+
+        try {
+            const res = await fetch(`/api/admin/loket-assignments?id=${id}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                toast.success('Assignment berhasil dihapus');
+                fetchAssignments();
+            } else {
+                toast.error(data.error || 'Gagal menghapus assignment');
+            }
+        } catch (error) {
+            console.error('Error deleting assignment:', error);
+            toast.error('Terjadi kesalahan');
+        }
+    };
+
     const filteredEmployees = employees.filter((emp) => {
         if (!debouncedSearch) return true;
         const search = debouncedSearch.toLowerCase();
@@ -224,6 +319,25 @@ export default function AdminEmployeesPage() {
                     </Link>
                 </div>
 
+                {/* Tab Switcher */}
+                <div className="flex gap-2">
+                    <Button
+                        onClick={() => setActiveMainTab('employees')}
+                        variant={activeMainTab === 'employees' ? 'default' : 'outline'}
+                    >
+                        Daftar Pegawai
+                    </Button>
+                    <Button
+                        onClick={() => setActiveMainTab('assignments')}
+                        variant={activeMainTab === 'assignments' ? 'default' : 'outline'}
+                    >
+                        <Users className="w-4 h-4 mr-2" />
+                        Assignment Loket
+                    </Button>
+                </div>
+
+                {/* Employees Tab Content */}
+                {activeMainTab === 'employees' && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Daftar Pegawai</CardTitle>
@@ -347,6 +461,145 @@ export default function AdminEmployeesPage() {
                         )}
                     </CardContent>
                 </Card>
+                )}
+
+                {/* Assignment Tab Content */}
+                {activeMainTab === 'assignments' && (
+                    <div className="space-y-6">
+                        {/* Create Assignment Form */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Assign User ke Loket</CardTitle>
+                                <CardDescription>
+                                    Kelola assignment petugas loket ke counter tertentu
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <Label>Pilih User (Petugas Loket)</Label>
+                                        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Pilih user..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {loketUsers.map((user) => (
+                                                    <SelectItem key={user.id} value={user.id}>
+                                                        {user.nama} (@{user.username})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div>
+                                        <Label>Pilih Loket</Label>
+                                        <Select value={selectedLoketId} onValueChange={setSelectedLoketId}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Pilih loket..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {[1, 2, 3, 4, 5].map((num) => (
+                                                    <SelectItem key={num} value={num.toString()}>
+                                                        Loket {num}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="flex items-end">
+                                        <Button
+                                            onClick={handleAssign}
+                                            disabled={!selectedUserId || !selectedLoketId}
+                                            className="w-full"
+                                        >
+                                            Assign
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Assignments List */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Daftar Assignment</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {loadingAssignments ? (
+                                    <div className="text-center py-8 text-gray-500">Loading...</div>
+                                ) : assignments.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500">
+                                        Belum ada assignment. Silakan buat assignment baru di atas.
+                                    </div>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Username</TableHead>
+                                                <TableHead>Nama</TableHead>
+                                                <TableHead>Loket yang Di-assign</TableHead>
+                                                <TableHead className="text-right">Aksi</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {Object.values(
+                                                assignments.reduce((acc: any, assignment: any) => {
+                                                    const userId = assignment.users?.id;
+                                                    if (!userId) return acc;
+                                                    
+                                                    if (!acc[userId]) {
+                                                        acc[userId] = {
+                                                            user: assignment.users,
+                                                            lokets: [],
+                                                        };
+                                                    }
+                                                    acc[userId].lokets.push({
+                                                        id: assignment.id,
+                                                        loket_id: assignment.loket_id,
+                                                    });
+                                                    return acc;
+                                                }, {})
+                                            ).map((item: any) => (
+                                                <TableRow key={item.user.id}>
+                                                    <TableCell className="font-medium">@{item.user.username}</TableCell>
+                                                    <TableCell>{item.user.nama}</TableCell>
+                                                    <TableCell>
+                                                        <div className="flex gap-2 flex-wrap">
+                                                            {item.lokets
+                                                                .sort((a: any, b: any) => a.loket_id - b.loket_id)
+                                                                .map((loket: any) => (
+                                                                    <div
+                                                                        key={loket.id}
+                                                                        className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm"
+                                                                    >
+                                                                        Loket {loket.loket_id}
+                                                                        <button
+                                                                            onClick={() => handleDeleteAssignment(loket.id)}
+                                                                            className="ml-1 hover:text-red-600 transition-colors"
+                                                                            title="Hapus assignment"
+                                                                        >
+                                                                            <Trash2 className="w-3 h-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <span className="text-sm text-gray-500">
+                                                            {item.lokets.length} loket
+                                                        </span>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
 
                 {/* Edit Poli Assignment Modal */}
                 <Dialog open={isPoliModalOpen} onOpenChange={setIsPoliModalOpen}>

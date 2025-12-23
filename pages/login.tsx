@@ -24,16 +24,40 @@ export default function LoginPage() {
 
     if (user) {
       const userData = JSON.parse(user);
-      redirectByRole(userData.role);
+      redirectByRole(userData.role, userData.id);
     }
   }, [router]);
 
-  const redirectByRole = (role: string) => {
+  const redirectByRole = async (role: string, userId?: string) => {
+    // For role 'loket', check their assignment and redirect to first assigned loket
+    if (role === "loket" && userId) {
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data: assignments } = await supabase
+          .from('user_loket_assignment')
+          .select('loket_id')
+          .eq('user_id', userId)
+          .order('loket_id', { ascending: true });
+
+        if (assignments && assignments.length > 0) {
+          // Redirect to first assigned loket
+          router.push(`/counter/loket-${assignments[0].loket_id}`);
+          return;
+        } else {
+          // No assignment - show error
+          setError("Anda belum di-assign ke loket manapun. Hubungi admin.");
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking loket assignment:", error);
+      }
+    }
+
     const redirectMap: Record<string, string> = {
       superadmin: "/admin",
       dokter: "/doctor",
       nurse: "/nurse",
-      loket: "/counter",
+      admin_loket: "/counter",
       farmasi: "/pharmacy",
       kasir: "/cashier",
     };
@@ -67,7 +91,7 @@ export default function LoginPage() {
         console.log("✅ Login successful, session expires at:", json.data.sessionExpiresAt);
 
         // Redirect based on role
-        redirectByRole(json.data.user.role);
+        await redirectByRole(json.data.user.role, json.data.user.id);
       } else {
         setError(json.error || "Login failed. Please try again.");
       }

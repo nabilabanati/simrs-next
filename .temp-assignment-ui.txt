@@ -1,0 +1,157 @@
+// Temporary file to hold the assignment UI component
+// This will be inserted into the employees page
+
+{/* Tab Switcher */}
+<div className="flex gap-2 mb-6">
+    <Button
+        onClick={() => setActiveMainTab('employees')}
+        variant={activeMainTab === 'employees' ? 'default' : 'outline'}
+    >
+        Daftar Pegawai
+    </Button>
+    <Button
+        onClick={() => setActiveMainTab('assignments')}
+        variant={activeMainTab === 'assignments' ? 'default' : 'outline'}
+    >
+        <Users className="w-4 h-4 mr-2" />
+        Assignment Loket
+    </Button>
+</div>
+
+{/* Assignment Tab Content */}
+{activeMainTab === 'assignments' && (
+    <div className="space-y-6">
+        {/* Create Assignment Form */}
+        <Card>
+            <CardHeader>
+                <CardTitle>Assign User ke Loket</CardTitle>
+                <CardDescription>
+                    Kelola assignment petugas loket ke counter tertentu
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <Label>Pilih User (Petugas Loket)</Label>
+                        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Pilih user..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {loketUsers.map((user) => (
+                                    <SelectItem key={user.id} value={user.id}>
+                                        {user.nama} (@{user.username})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div>
+                        <Label>Pilih Loket</Label>
+                        <Select value={selectedLoketId} onValueChange={setSelectedLoketId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Pilih loket..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {[1, 2, 3, 4, 5].map((num) => (
+                                    <SelectItem key={num} value={num.toString()}>
+                                        Loket {num}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-end">
+                        <Button
+                            onClick={handleAssign}
+                            disabled={!selectedUserId || !selectedLoketId}
+                            className="w-full"
+                        >
+                            Assign
+                        </Button>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+
+        {/* Assignments List */}
+        <Card>
+            <CardHeader>
+                <CardTitle>Daftar Assignment</CardTitle>
+            </CardHeader>
+            <CardContent>
+                {loadingAssignments ? (
+                    <div className="text-center py-8 text-gray-500">Loading...</div>
+                ) : assignments.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                        Belum ada assignment. Silakan buat assignment baru di atas.
+                    </div>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Username</TableHead>
+                                <TableHead>Nama</TableHead>
+                                <TableHead>Loket yang Di-assign</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {Object.values(
+                                assignments.reduce((acc: any, assignment: any) => {
+                                    const userId = assignment.users?.id;
+                                    if (!userId) return acc;
+                                    
+                                    if (!acc[userId]) {
+                                        acc[userId] = {
+                                            user: assignment.users,
+                                            lokets: [],
+                                        };
+                                    }
+                                    acc[userId].lokets.push({
+                                        id: assignment.id,
+                                        loket_id: assignment.loket_id,
+                                    });
+                                    return acc;
+                                }, {})
+                            ).map((item: any) => (
+                                <TableRow key={item.user.id}>
+                                    <TableCell className="font-medium">@{item.user.username}</TableCell>
+                                    <TableCell>{item.user.nama}</TableCell>
+                                    <TableCell>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {item.lokets
+                                                .sort((a: any, b: any) => a.loket_id - b.loket_id)
+                                                .map((loket: any) => (
+                                                    <div
+                                                        key={loket.id}
+                                                        className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm"
+                                                    >
+                                                        Loket {loket.loket_id}
+                                                        <button
+                                                            onClick={() => handleDeleteAssignment(loket.id)}
+                                                            className="ml-1 hover:text-red-600 transition-colors"
+                                                            title="Hapus assignment"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <span className="text-sm text-gray-500">
+                                            {item.lokets.length} loket
+                                        </span>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </CardContent>
+        </Card>
+    </div>
+)}

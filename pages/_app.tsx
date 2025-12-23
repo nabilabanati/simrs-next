@@ -66,7 +66,7 @@ export default function App({ Component, pageProps }: AppProps) {
   }, [router.pathname]);
 
   // Route prefixes that should not use the layout (e.g. public display and queue pages)
-  const noLayoutPrefixes = ["/login", "/register", "/loket-antrian", "/queue", "/counter"];
+  const noLayoutPrefixes = ["/login", "/register", "/loket-antrian", "/queue", "/counter", "/unauthorized"];
   const doctorRoutes = router.pathname.startsWith("/doctor");
   const nurseRoutes = router.pathname.startsWith("/nurse");
 

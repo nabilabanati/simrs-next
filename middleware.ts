@@ -21,8 +21,13 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
     "/doctor": ["dokter"],
     "/dokter": ["dokter"],
     "/nurse": ["nurse"],
-    "/loket-pendaftaran": ["loket"],
-    "/loket-antrian": ["loket"],
+    "/counter/loket-1": ["loket", "admin_loket"],
+    "/counter/loket-2": ["loket", "admin_loket"],
+    "/counter/loket-3": ["loket", "admin_loket"],
+    "/counter/loket-4": ["loket", "admin_loket"],
+    "/counter/loket-5": ["loket", "admin_loket"],
+    "/counter/patients": ["loket", "admin_loket"],
+    "/counter": ["admin_loket"], // Dashboard admin - hanya admin_loket
     "/pharmacy": ["farmasi"],
     "/cashier": ["kasir"],
 };
@@ -32,9 +37,12 @@ const PUBLIC_ROUTES = ["/login", "/register", "/", "/api/auth/login", "/api/auth
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
+    
+    console.log(`🔒 [Middleware] Checking: ${pathname}`);
 
     // Allow public routes
     if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+        console.log(`✅ [Middleware] Public route: ${pathname}`);
         return NextResponse.next();
     }
 
@@ -51,6 +59,7 @@ export async function middleware(request: NextRequest) {
 
     // No token found - redirect to login
     if (!token) {
+        console.log(`❌ [Middleware] No token, redirecting to login from: ${pathname}`);
         const loginUrl = new URL("/login", request.url);
         loginUrl.searchParams.set("redirect", pathname);
         return NextResponse.redirect(loginUrl);
@@ -122,6 +131,45 @@ export async function middleware(request: NextRequest) {
                     // User doesn't have permission for this route
                     return NextResponse.redirect(new URL("/unauthorized", request.url));
                 }
+                
+                // === LOKET ASSIGNMENT CHECK ===
+                // If user has role 'loket' and trying to access specific loket page, check assignment
+                if (decoded.role === 'loket' && pathname.match(/\/counter\/loket-(\d+)/)) {
+                    const loketMatch = pathname.match(/\/counter\/loket-(\d+)/);
+                    const requestedLoketId = loketMatch ? parseInt(loketMatch[1]) : null;
+                    
+                    if (requestedLoketId) {
+                        console.log(`🔍 [Middleware] Checking loket assignment for user ${decoded.username} to loket ${requestedLoketId}`);
+                        
+                        // Check if user is assigned to this loket
+                        const { data: assignments, error: assignmentError } = await supabase
+                            .from('user_loket_assignment')
+                            .select('loket_id')
+                            .eq('user_id', decoded.id);
+                        
+                        if (assignmentError) {
+                            console.error('❌ [Middleware] Error checking loket assignment:', assignmentError);
+                            return NextResponse.redirect(new URL("/unauthorized", request.url));
+                        }
+                        
+                        const assignedLokets = assignments?.map(a => a.loket_id) || [];
+                        console.log(`📋 [Middleware] User assigned to lokets:`, assignedLokets);
+                        
+                        if (assignedLokets.length === 0) {
+                            console.log('❌ [Middleware] User has no loket assignments');
+                            return NextResponse.redirect(new URL("/unauthorized", request.url));
+                        }
+                        
+                        if (!assignedLokets.includes(requestedLoketId)) {
+                            console.log(`❌ [Middleware] User not assigned to loket ${requestedLoketId}`);
+                            return NextResponse.redirect(new URL("/unauthorized", request.url));
+                        }
+                        
+                        console.log(`✅ [Middleware] User has access to loket ${requestedLoketId}`);
+                    }
+                }
+                // admin_loket can access all lokets without assignment check
+                
                 // User has permission, allow access
                 return NextResponse.next();
             }
@@ -146,6 +194,14 @@ export const config = {
          * - _next/image (image optimization files)
          * - favicon.ico (favicon file)
          * - public folder
+         * 
+         * EXPLICITLY INCLUDE:
+         * - /counter/* (all counter routes)
+         * - /admin/* (all admin routes)
+         * - /doctor/* (all doctor routes)
+         * - /nurse/* (all nurse routes)
+         * - /pharmacy/* (all pharmacy routes)
+         * - /cashier/* (all cashier routes)
          */
         "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     ],

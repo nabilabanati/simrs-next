@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Volume2, Users, Clock, Download } from 'lucide-react';
 import PatientSearchModal from '@/components/modals/patient-search-modal';
 import AddVisitModal from '@/components/modals/add-visit-modal';
+import CreatePatientModal from '@/components/modals/create-patient-modal';
 import { fetchPoli, fetchAllDoctors, fetchPaymentMethods } from '@/lib/api-client';
 import type { Poli, Doctor, PaymentMethod } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -37,15 +39,18 @@ interface CurrentTicket {
 }
 
 export default function LoketInterface({ loketId }: LoketInterfaceProps) {
+  const router = useRouter();
   const [currentTicket, setCurrentTicket] = useState<CurrentTicket | null>(null);
   const [waitingQueue, setWaitingQueue] = useState<QueueItem[]>([]);
   const [waitingCount, setWaitingCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // Modal states
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showVisitModal, setShowVisitModal] = useState(false);
+  const [showCreatePatientModal, setShowCreatePatientModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
 
   // API data
@@ -66,6 +71,55 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
   const [filterPenjamin, setFilterPenjamin] = useState('');
   const [searchInput, setSearchInput] = useState('');
 
+  // ===== CLIENT-SIDE AUTH CHECK =====
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const userStr = localStorage.getItem('user');
+        
+        if (!userStr) {
+          console.log('❌ [LoketInterface] No user in localStorage, redirecting to login');
+          router.push(`/login?redirect=/counter/loket-${loketId}`);
+          return;
+        }
+
+        const user = JSON.parse(userStr);
+        
+        // Check if user has correct role
+        if (!['loket', 'admin_loket'].includes(user.role)) {
+          console.log('❌ [LoketInterface] Invalid role, redirecting to unauthorized');
+          router.push('/unauthorized');
+          return;
+        }
+
+        // For role 'loket', check assignment
+        if (user.role === 'loket') {
+          const { supabase } = await import('@/lib/supabase');
+          const { data: assignments } = await supabase
+            .from('user_loket_assignment')
+            .select('loket_id')
+            .eq('user_id', user.id);
+
+          const assignedLokets = assignments?.map(a => a.loket_id) || [];
+          
+          if (!assignedLokets.includes(loketId)) {
+            console.log(`❌ [LoketInterface] User not assigned to loket ${loketId}`);
+            router.push('/unauthorized');
+            return;
+          }
+        }
+
+        console.log(`✅ [LoketInterface] Auth check passed for loket ${loketId}`);
+        setIsAuthChecking(false);
+      } catch (error) {
+        console.error('Auth check error:', error);
+        router.push('/login');
+      }
+    };
+
+    checkAuth();
+  }, [loketId, router]);
+
   // Initialize time
   useEffect(() => {
     setCurrentTime(new Date());
@@ -77,6 +131,8 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
 
   // Load API data
   useEffect(() => {
+    if (isAuthChecking) return; // Don't load data until auth is checked
+    
     const loadData = async () => {
       try {
         const [polisData, doctorsData, paymentsData] = await Promise.all([
@@ -93,7 +149,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
       }
     };
     loadData();
-  }, []);
+  }, [isAuthChecking]);
 
   // Fetch queue data
   const fetchQueue = async () => {
@@ -273,6 +329,13 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
     setShowVisitModal(true);
   };
 
+  const handlePatientCreated = (newPatient: any) => {
+    // Pasien baru sudah dibuat, langsung ke modal add visit
+    setSelectedPatient(newPatient);
+    setShowCreatePatientModal(false);
+    setShowVisitModal(true);
+  };
+
   const handleSaveVisit = async (visitData: any) => {
     if (!selectedPatient || !currentTicket) {
       console.error('Missing data:', { selectedPatient, currentTicket });
@@ -340,6 +403,18 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
     month: 'long',
     day: 'numeric',
   }) || '-';
+
+  // Show loading while checking auth
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Memeriksa autentikasi...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -693,21 +768,24 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
         onPatientSelected={handlePatientSelected}
         onCreateNew={() => {
           setShowSearchModal(false);
-          window.location.href = '/counter/patients/create';
+          setShowCreatePatientModal(true);
         }}
       />
 
+      {showCreatePatientModal && (
+        <CreatePatientModal
+          onClose={() => setShowCreatePatientModal(false)}
+          onSuccess={handlePatientCreated}
+        />
+      )}
+
       {selectedPatient && (
         <AddVisitModal
-          isOpen={showVisitModal}
+          patient={selectedPatient}
           onClose={() => {
             setShowVisitModal(false);
             setSelectedPatient(null);
           }}
-          patient={selectedPatient}
-          polis={polis}
-          doctors={doctors}
-          paymentMethods={paymentMethods}
           onSave={handleSaveVisit}
         />
       )}
