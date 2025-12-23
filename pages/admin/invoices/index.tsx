@@ -17,33 +17,37 @@ export default function AdminInvoicesPage() {
     const debouncedSearch = useDebounce(searchTerm, 500);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        // Token is in HttpOnly cookie, we only check user data
         const user = localStorage.getItem("user");
 
-        if (!token || !user) {
+        if (!user) {
             router.push("/login");
             return;
         }
 
-        const userData = JSON.parse(user);
-        if (userData.role !== "superadmin") {
-            router.push("/login");
-            return;
-        }
+        try {
+            const userData = JSON.parse(user);
+            if (userData.role !== "superadmin") {
+                router.push("/login");
+                return;
+            }
 
-        fetchInvoices();
+            fetchInvoices();
+        } catch (error) {
+            console.error("Error parsing user data:", error);
+            router.push("/login");
+        }
     }, [router, paidFilter]);
 
     const fetchInvoices = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
             const url = paidFilter === "all"
                 ? "/api/admin/invoices"
                 : `/api/admin/invoices?paid=${paidFilter}`;
 
             const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             const json = await res.json();
             setInvoices(json.data || []);

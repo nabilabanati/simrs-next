@@ -17,29 +17,33 @@ export default function AdminPharmacyOrdersPage() {
     const debouncedSearch = useDebounce(searchTerm, 500);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        // Token is in HttpOnly cookie, we only check user data
         const user = localStorage.getItem("user");
 
-        if (!token || !user) {
+        if (!user) {
             router.push("/login");
             return;
         }
 
-        const userData = JSON.parse(user);
-        if (userData.role !== "superadmin") {
-            router.push("/login");
-            return;
-        }
+        try {
+            const userData = JSON.parse(user);
+            if (userData.role !== "superadmin") {
+                router.push("/login");
+                return;
+            }
 
-        fetchOrders();
+            fetchOrders();
+        } catch (error) {
+            console.error("Error parsing user data:", error);
+            router.push("/login");
+        }
     }, [router]);
 
     const fetchOrders = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
             const res = await fetch("/api/pharmacy/orders", {
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             const json = await res.json();
             setOrders(json.data || []);
