@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Calendar, Clock, Plus, Trash2, AlertCircle, Edit } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/router'
+import Breadcrumb from '@/components/dashboard/poli/Breadcrumb'
 
 const DAYS = [
     { value: 'senin', label: 'Senin' },
@@ -44,6 +45,7 @@ export default function DoctorSchedulePage() {
     const [schedules, setSchedules] = useState<Schedule[]>([])
     const [overrides, setOverrides] = useState<ScheduleOverride[]>([])
     const [dokterId, setDokterId] = useState<string>('')
+    const [poliName, setPoliName] = useState<string>('')
 
     // Regular schedule modal
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false)
@@ -95,6 +97,19 @@ export default function DoctorSchedulePage() {
             }
 
             setDokterId(data.id)
+
+            // Get poli info
+            const { data: poliRelasi } = await supabase
+                .from('doctor_poli')
+                .select('poli ( id, nama )')
+                .eq('dokter_id', data.id)
+                .limit(1)
+
+            if (poliRelasi && poliRelasi.length > 0) {
+                const poliData = poliRelasi[0] as any
+                setPoliName(poliData.poli.nama)
+            }
+
             fetchSchedules(data.id)
             fetchOverrides(data.id)
         } catch (error) {
@@ -327,289 +342,233 @@ export default function DoctorSchedulePage() {
         setReason('')
     }
 
+    const formatTime = (time: string) => {
+        // Convert HH:MM:SS to HH.MM (Indonesian format)
+        if (!time) return time
+        const parts = time.split(':')
+        if (parts.length >= 2) {
+            return `${parts[0]}.${parts[1]}`
+        }
+        return time
+    }
+
     const getDayLabel = (day: string) => {
         return DAYS.find(d => d.value === day)?.label || day
     }
 
     return (
         <DoctorLayout>
-            <div className="space-y-6">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Jadwal Praktik</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Kelola jadwal praktik rutin dan override untuk kasus darurat
-                    </p>
-                </div>
+            <div className="min-h-screen bg-white">
+                <div className="px-12 pb-12 py-12 pr-12 pl-12 pt-16">
+                    <Breadcrumb
+                        items={[
+                            { label: `${poliName}`, href: '/doctor' },
+                            { label: 'Jadwal Praktik' },
+                        ]}
+                    />
 
-                {/* Regular Schedules */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <CardTitle>Jadwal Rutin Mingguan</CardTitle>
-                                <CardDescription>
-                                    Jadwal praktik regular per hari
-                                </CardDescription>
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight mb-6">Jadwal Praktik</h1>
+                    </div>
+
+                    {/* Regular Schedules */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <CardTitle>Jadwal Rutin Mingguan</CardTitle>
+                                    <div className='mb-2'></div>
+                                    <CardDescription>
+                                        Jadwal praktik regular per hari
+                                    </CardDescription>
+                                </div>
+                                <Button onClick={() => setIsScheduleModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Tambah Jadwal
+                                </Button>
                             </div>
-                            <Button onClick={() => setIsScheduleModalOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Tambah Jadwal
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        {loading ? (
-                            <p className="text-center py-8 text-gray-500">Loading...</p>
-                        ) : schedules.length === 0 ? (
-                            <p className="text-center py-8 text-gray-500">
-                                Belum ada jadwal. Klik "Tambah Jadwal" untuk menambahkan.
-                            </p>
-                        ) : (
-                            <div className="grid gap-3">
-                                {DAYS.map(day => {
-                                    const daySchedules = schedules.filter(s => s.hari === day.value)
-                                    return (
+                        </CardHeader>
+                        <CardContent>
+                            {loading ? (
+                                <p className="text-center py-8 text-gray-500">Loading...</p>
+                            ) : schedules.length === 0 ? (
+                                <p className="text-center py-8 text-gray-500">
+                                    Belum ada jadwal. Klik "Tambah Jadwal" untuk menambahkan.
+                                </p>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <div className="grid grid-cols-7 gap-2 min-w-max">
+                                        {DAYS.map(day => {
+                                            const daySchedules = schedules.filter(s => s.hari === day.value)
+                                            return (
+                                                <div
+                                                    key={day.value}
+                                                    className={`p-3 rounded-lg border min-w-[140px] ${daySchedules.length > 0 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-2 mb-3 justify-center">
+                                                        <Calendar className="h-4 w-4 text-gray-600" />
+                                                        <p className="font-semibold text-sm">{day.label}</p>
+                                                    </div>
+
+                                                    {daySchedules.length === 0 ? (
+                                                        <p className="text-xs text-gray-500 text-center">Tidak ada jadwal</p>
+                                                    ) : (
+                                                        <div className="space-y-2">
+                                                            {daySchedules.map((schedule, idx) => (
+                                                                <div
+                                                                    key={schedule.id}
+                                                                    className="bg-white p-2 rounded border border-blue-100"
+                                                                >
+                                                                    {schedule.session_name && (
+                                                                        <p className="text-xs font-medium text-blue-600 mb-1 truncate">
+                                                                            {schedule.session_name}
+                                                                        </p>
+                                                                    )}
+                                                                    <p className="text-xs text-gray-700 flex items-center gap-1 mb-1">
+                                                                        <Clock className="h-3 w-3 flex-shrink-0" />
+                                                                        <span className="text-xs">{formatTime(schedule.jam_mulai)} - {formatTime(schedule.jam_selesai)}</span>
+                                                                    </p>
+                                                                    {schedule.max_patients_per_day && (
+                                                                        <p className="text-xs text-gray-500 mt-1">
+                                                                            Kuota: {schedule.max_patients_per_day}
+                                                                        </p>
+                                                                    )}
+                                                                    <div className="flex gap-1 mt-2">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            onClick={() => handleEditSchedule(schedule)}
+                                                                            className="h-6 px-2 bg-blue-50 hover:bg-blue-100 text-blue-600"
+                                                                        >
+                                                                            <Edit className="h-3 w-3" />
+                                                                        </Button>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            onClick={() => handleDeleteSchedule(schedule.id)}
+                                                                            className="h-6 px-2 bg-red-50 hover:bg-red-100 text-red-600"
+                                                                        >
+                                                                            <Trash2 className="h-3 w-3" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                    <div className='mb-6'></div>
+                    {/* Schedule Overrides */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <CardTitle>Override Jadwal (Kasus Darurat)</CardTitle>
+                                    <div className='mb-2'></div>
+                                    <CardDescription>
+                                        Ubah jadwal untuk tanggal tertentu atau batalkan praktik
+                                    </CardDescription>
+                                </div>
+                                <Button onClick={() => setIsOverrideModalOpen(true)} className="bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50">
+                                    <AlertCircle className="mr-2 h-4 w-4" />
+                                    Tambah Override
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {overrides.length === 0 ? (
+                                <p className="text-center py-8 text-gray-500">
+                                    Tidak ada override jadwal
+                                </p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {overrides.map(override => (
                                         <div
-                                            key={day.value}
-                                            className={`p-4 rounded-lg border ${daySchedules.length > 0 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
+                                            key={override.id}
+                                            className={`flex items-center justify-between p-4 rounded-lg border ${override.is_cancelled
+                                                ? 'bg-red-50 border-red-200'
+                                                : 'bg-yellow-50 border-yellow-200'
                                                 }`}
                                         >
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <Calendar className="h-5 w-5 text-gray-600" />
-                                                <p className="font-semibold">{day.label}</p>
-                                            </div>
-
-                                            {daySchedules.length === 0 ? (
-                                                <p className="text-sm text-gray-500 ml-8">Tidak ada jadwal</p>
-                                            ) : (
-                                                <div className="ml-8 space-y-2">
-                                                    {daySchedules.map((schedule, idx) => (
-                                                        <div
-                                                            key={schedule.id}
-                                                            className="flex items-center justify-between bg-white p-3 rounded border border-blue-100"
-                                                        >
-                                                            <div className="flex-1">
-                                                                {schedule.session_name && (
-                                                                    <p className="text-xs font-medium text-blue-600 mb-1">
-                                                                        {schedule.session_name}
-                                                                    </p>
-                                                                )}
-                                                                <p className="text-sm text-gray-700 flex items-center gap-1">
-                                                                    <Clock className="h-3 w-3" />
-                                                                    {schedule.jam_mulai} - {schedule.jam_selesai}
-                                                                </p>
-                                                                {schedule.max_patients_per_day && (
-                                                                    <p className="text-xs text-gray-500 mt-1">
-                                                                        Kuota: {schedule.max_patients_per_day} pasien
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex gap-1">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => handleEditSchedule(schedule)}
-                                                                >
-                                                                    <Edit className="h-4 w-4 text-blue-600" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => handleDeleteSchedule(schedule.id)}
-                                                                >
-                                                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Schedule Overrides */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <CardTitle>Override Jadwal (Kasus Darurat)</CardTitle>
-                                <CardDescription>
-                                    Ubah jadwal untuk tanggal tertentu atau batalkan praktik
-                                </CardDescription>
-                            </div>
-                            <Button onClick={() => setIsOverrideModalOpen(true)} variant="outline">
-                                <AlertCircle className="mr-2 h-4 w-4" />
-                                Tambah Override
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        {overrides.length === 0 ? (
-                            <p className="text-center py-8 text-gray-500">
-                                Tidak ada override jadwal
-                            </p>
-                        ) : (
-                            <div className="space-y-3">
-                                {overrides.map(override => (
-                                    <div
-                                        key={override.id}
-                                        className={`flex items-center justify-between p-4 rounded-lg border ${override.is_cancelled
-                                            ? 'bg-red-50 border-red-200'
-                                            : 'bg-yellow-50 border-yellow-200'
-                                            }`}
-                                    >
-                                        <div>
-                                            <p className="font-semibold">
-                                                {new Date(override.tanggal).toLocaleDateString('id-ID', {
-                                                    weekday: 'long',
-                                                    year: 'numeric',
-                                                    month: 'long',
-                                                    day: 'numeric'
-                                                })}
-                                            </p>
-                                            {override.is_cancelled ? (
-                                                <p className="text-sm text-red-600 font-medium">LIBUR / TIDAK TERSEDIA</p>
-                                            ) : (
-                                                <p className="text-sm text-gray-600 flex items-center gap-1">
-                                                    <Clock className="h-3 w-3" />
-                                                    {override.jam_mulai} - {override.jam_selesai}
+                                            <div>
+                                                <p className="font-semibold">
+                                                    {new Date(override.tanggal).toLocaleDateString('id-ID', {
+                                                        weekday: 'long',
+                                                        year: 'numeric',
+                                                        month: 'long',
+                                                        day: 'numeric'
+                                                    })}
                                                 </p>
-                                            )}
-                                            {override.reason && (
-                                                <p className="text-xs text-gray-500 mt-1">Alasan: {override.reason}</p>
-                                            )}
+                                                {override.is_cancelled ? (
+                                                    <p className="text-sm text-red-600 font-medium">LIBUR / TIDAK TERSEDIA</p>
+                                                ) : (
+                                                    <p className="text-sm text-gray-600 flex items-center gap-1">
+                                                        <Clock className="h-3 w-3" />
+                                                        {formatTime(override.jam_mulai || '')} - {formatTime(override.jam_selesai || '')}
+                                                    </p>
+                                                )}
+                                                {override.reason && (
+                                                    <p className="text-xs text-gray-500 mt-1">Alasan: {override.reason}</p>
+                                                )}
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                onClick={() => handleDeleteOverride(override.id)}
+                                                className="bg-red-50 hover:bg-red-100 text-red-600"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleDeleteOverride(override.id)}
-                                        >
-                                            <Trash2 className="h-4 w-4 text-red-600" />
-                                        </Button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Add Schedule Modal */}
-                <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>{editingScheduleId ? 'Edit Jadwal' : 'Tambah Jadwal Rutin'}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div>
-                                <Label>Hari</Label>
-                                <select
-                                    value={selectedDay}
-                                    onChange={(e) => setSelectedDay(e.target.value)}
-                                    className="w-full border rounded-md px-3 py-2 mt-1"
-                                >
-                                    <option value="">Pilih Hari</option>
-                                    {DAYS.map(day => (
-                                        <option key={day.value} value={day.value}>{day.label}</option>
                                     ))}
-                                </select>
-                            </div>
-                            <div>
-                                <Label>Nama Sesi (Opsional)</Label>
-                                <Input
-                                    value={sessionName}
-                                    onChange={(e) => setSessionName(e.target.value)}
-                                    placeholder="Contoh: Sesi Pagi, Sesi Siang"
-                                    className="mt-1"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Untuk membedakan jika ada multiple sesi di hari yang sama
-                                </p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label>Jam Mulai</Label>
-                                    <Input
-                                        type="time"
-                                        value={jamMulai}
-                                        onChange={(e) => setJamMulai(e.target.value)}
-                                        className="mt-1"
-                                    />
                                 </div>
-                                <div>
-                                    <Label>Jam Selesai</Label>
-                                    <Input
-                                        type="time"
-                                        value={jamSelesai}
-                                        onChange={(e) => setJamSelesai(e.target.value)}
-                                        className="mt-1"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <Label>Kuota Pasien (Opsional)</Label>
-                                <Input
-                                    type="number"
-                                    value={maxPatients}
-                                    onChange={(e) => setMaxPatients(e.target.value)}
-                                    placeholder="Contoh: 10"
-                                    className="mt-1"
-                                    min="1"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Maksimal pasien untuk sesi ini. Kosongkan untuk unlimited.
-                                </p>
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsScheduleModalOpen(false)}>
-                                Batal
-                            </Button>
-                            <Button onClick={handleSaveSchedule}>Simpan</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                            )}
+                        </CardContent>
+                    </Card>
 
-                {/* Add Override Modal */}
-                <Dialog open={isOverrideModalOpen} onOpenChange={setIsOverrideModalOpen}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Override Jadwal</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div>
-                                <Label>Tanggal</Label>
-                                <Input
-                                    type="date"
-                                    value={overrideDate}
-                                    onChange={(e) => setOverrideDate(e.target.value)}
-                                    className="mt-1"
-                                />
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    id="is-cancelled"
-                                    checked={isCancelled}
-                                    onChange={(e) => setIsCancelled(e.target.checked)}
-                                    className="rounded"
-                                />
-                                <Label htmlFor="is-cancelled" className="cursor-pointer">
-                                    Batalkan praktik (Libur total)
-                                </Label>
-                            </div>
-                            {!isCancelled && (
-                                <>
+                    {/* Add Schedule Modal */}
+                    <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>{editingScheduleId ? 'Edit Jadwal' : 'Tambah Jadwal Rutin'}</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div>
+                                    <Label>Hari</Label>
+                                    <select
+                                        value={selectedDay}
+                                        onChange={(e) => setSelectedDay(e.target.value)}
+                                        className="w-full border rounded-md px-3 py-2 mt-1"
+                                    >
+                                        <option value="">Pilih Hari</option>
+                                        {DAYS.map(day => (
+                                            <option key={day.value} value={day.value}>{day.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <Label>Nama Sesi (Opsional)</Label>
+                                    <Input
+                                        value={sessionName}
+                                        onChange={(e) => setSessionName(e.target.value)}
+                                        placeholder="Contoh: Sesi Pagi, Sesi Siang"
+                                        className="mt-1"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Untuk membedakan jika ada multiple sesi di hari yang sama
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <Label>Jam Mulai</Label>
                                         <Input
                                             type="time"
-                                            value={overrideJamMulai}
-                                            onChange={(e) => setOverrideJamMulai(e.target.value)}
+                                            value={jamMulai}
+                                            onChange={(e) => setJamMulai(e.target.value)}
                                             className="mt-1"
                                         />
                                     </div>
@@ -617,31 +576,105 @@ export default function DoctorSchedulePage() {
                                         <Label>Jam Selesai</Label>
                                         <Input
                                             type="time"
-                                            value={overrideJamSelesai}
-                                            onChange={(e) => setOverrideJamSelesai(e.target.value)}
+                                            value={jamSelesai}
+                                            onChange={(e) => setJamSelesai(e.target.value)}
                                             className="mt-1"
                                         />
                                     </div>
-                                </>
-                            )}
-                            <div>
-                                <Label>Alasan (Opsional)</Label>
-                                <Input
-                                    value={reason}
-                                    onChange={(e) => setReason(e.target.value)}
-                                    placeholder="Contoh: Darurat di RS lain"
-                                    className="mt-1"
-                                />
+                                </div>
+                                <div>
+                                    <Label>Kuota Pasien (Opsional)</Label>
+                                    <Input
+                                        type="number"
+                                        value={maxPatients}
+                                        onChange={(e) => setMaxPatients(e.target.value)}
+                                        placeholder="Contoh: 10"
+                                        className="mt-1"
+                                        min="1"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Maksimal pasien untuk sesi ini. Kosongkan untuk unlimited.
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsOverrideModalOpen(false)}>
-                                Batal
-                            </Button>
-                            <Button onClick={handleSaveOverride}>Simpan</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsScheduleModalOpen(false)} className="border-gray-300 text-gray-700 hover:bg-gray-50">
+                                    Batal
+                                </Button>
+                                <Button onClick={handleSaveSchedule} className="bg-blue-600 hover:bg-blue-700 text-white">Simpan</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Add Override Modal */}
+                    <Dialog open={isOverrideModalOpen} onOpenChange={setIsOverrideModalOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Override Jadwal</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div>
+                                    <Label>Tanggal</Label>
+                                    <Input
+                                        type="date"
+                                        value={overrideDate}
+                                        onChange={(e) => setOverrideDate(e.target.value)}
+                                        className="mt-1"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="is-cancelled"
+                                        checked={isCancelled}
+                                        onChange={(e) => setIsCancelled(e.target.checked)}
+                                        className="rounded"
+                                    />
+                                    <Label htmlFor="is-cancelled" className="cursor-pointer">
+                                        Batalkan praktik (Libur total)
+                                    </Label>
+                                </div>
+                                {!isCancelled && (
+                                    <>
+                                        <div>
+                                            <Label>Jam Mulai</Label>
+                                            <Input
+                                                type="time"
+                                                value={overrideJamMulai}
+                                                onChange={(e) => setOverrideJamMulai(e.target.value)}
+                                                className="mt-1"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label>Jam Selesai</Label>
+                                            <Input
+                                                type="time"
+                                                value={overrideJamSelesai}
+                                                onChange={(e) => setOverrideJamSelesai(e.target.value)}
+                                                className="mt-1"
+                                            />
+                                        </div>
+                                    </>
+                                )}
+                                <div>
+                                    <Label>Alasan (Opsional)</Label>
+                                    <Input
+                                        value={reason}
+                                        onChange={(e) => setReason(e.target.value)}
+                                        placeholder="Contoh: Darurat di RS lain"
+                                        className="mt-1"
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsOverrideModalOpen(false)} className="border-gray-300 text-gray-700 hover:bg-gray-50">
+                                    Batal
+                                </Button>
+                                <Button onClick={handleSaveOverride} className="bg-blue-600 hover:bg-blue-700 text-white">Simpan</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
         </DoctorLayout>
     )
