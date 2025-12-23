@@ -29,29 +29,33 @@ export default function AdminPoliPage() {
     });
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        // Token is in HttpOnly cookie, we only check user data
         const user = localStorage.getItem("user");
 
-        if (!token || !user) {
+        if (!user) {
             router.push("/login");
             return;
         }
 
-        const userData = JSON.parse(user);
-        if (userData.role !== "superadmin") {
-            router.push("/login");
-            return;
-        }
+        try {
+            const userData = JSON.parse(user);
+            if (userData.role !== "superadmin") {
+                router.push("/login");
+                return;
+            }
 
-        fetchPolis();
+            fetchPolis();
+        } catch (error) {
+            console.error("Error parsing user data:", error);
+            router.push("/login");
+        }
     }, [router]);
 
     const fetchPolis = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
             const res = await fetch("/api/master/poli", {
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",  // Auto-send cookie
             });
             const json = await res.json();
             setPolis(json.data || []);
@@ -66,13 +70,12 @@ export default function AdminPoliPage() {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem("token");
             const res = await fetch("/api/master/poli", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
                 },
+                credentials: "include",
                 body: JSON.stringify({
                     nama: formData.nama,
                     kode: formData.kode || null,
@@ -98,13 +101,12 @@ export default function AdminPoliPage() {
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem("token");
             const res = await fetch("/api/master/poli", {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
                 },
+                credentials: "include",
                 body: JSON.stringify({
                     id: currentPoli.id,
                     nama: formData.nama,
@@ -135,13 +137,12 @@ export default function AdminPoliPage() {
         }
 
         try {
-            const token = localStorage.getItem("token");
             const res = await fetch("/api/master/poli", {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
                 },
+                credentials: "include",
                 body: JSON.stringify({ id: poli.id }),
             });
 
