@@ -16,29 +16,33 @@ export default function AdminMedicinesPage() {
     const debouncedSearch = useDebounce(searchTerm, 500);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        // Token is in HttpOnly cookie, we only check user data
         const user = localStorage.getItem("user");
 
-        if (!token || !user) {
+        if (!user) {
             router.push("/login");
             return;
         }
 
-        const userData = JSON.parse(user);
-        if (userData.role !== "superadmin") {
-            router.push("/login");
-            return;
-        }
+        try {
+            const userData = JSON.parse(user);
+            if (userData.role !== "superadmin") {
+                router.push("/login");
+                return;
+            }
 
-        fetchMedicines();
+            fetchMedicines();
+        } catch (error) {
+            console.error("Error parsing user data:", error);
+            router.push("/login");
+        }
     }, [router]);
 
     const fetchMedicines = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
             const res = await fetch("/api/master/medicines", {
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include",
             });
             const json = await res.json();
             setMedicines(json.data || []);
