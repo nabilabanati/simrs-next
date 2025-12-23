@@ -127,7 +127,14 @@ export async function middleware(request: NextRequest) {
         // Check route permissions
         for (const [route, allowedRoles] of Object.entries(ROUTE_PERMISSIONS)) {
             if (pathname.startsWith(route)) {
-                if (!allowedRoles.includes(decoded.role)) {
+                console.log(`🔍 [Middleware] Route match: ${route}, User role: ${decoded.role}, Allowed: ${allowedRoles.join(', ')}`);
+                
+                // Case-insensitive role check
+                const userRoleLower = decoded.role?.toLowerCase();
+                const hasPermission = allowedRoles.some(role => role.toLowerCase() === userRoleLower);
+                
+                if (!hasPermission) {
+                    console.log(`❌ [Middleware] Permission denied for ${pathname}`);
                     // User doesn't have permission for this route
                     return NextResponse.redirect(new URL("/unauthorized", request.url));
                 }

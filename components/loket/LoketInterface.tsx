@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Volume2, Users, Clock, Download } from 'lucide-react';
 import PatientSearchModal from '@/components/modals/patient-search-modal';
 import AddVisitModal from '@/components/modals/add-visit-modal';
-import CreatePatientModal from '@/components/modals/create-patient-modal';
 import { fetchPoli, fetchAllDoctors, fetchPaymentMethods } from '@/lib/api-client';
 import type { Poli, Doctor, PaymentMethod } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -50,7 +49,6 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
   // Modal states
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showVisitModal, setShowVisitModal] = useState(false);
-  const [showCreatePatientModal, setShowCreatePatientModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
 
   // API data
@@ -329,11 +327,10 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
     setShowVisitModal(true);
   };
 
-  const handlePatientCreated = (newPatient: any) => {
-    // Pasien baru sudah dibuat, langsung ke modal add visit
-    setSelectedPatient(newPatient);
-    setShowCreatePatientModal(false);
-    setShowVisitModal(true);
+  const handleCreateNewPatient = () => {
+    setShowSearchModal(false);
+    // Redirect to create patient form with returnTo parameter
+    router.push(`/counter/patients/create?returnTo=/counter/loket-${loketId}`);
   };
 
   const handleSaveVisit = async (visitData: any) => {
@@ -737,9 +734,23 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
                       <TableCell className="px-2 py-2 text-xs">{visit.doctor?.nama || '-'}</TableCell>
                       <TableCell className="px-2 py-2 text-xs">{visit.penjamin?.nama || 'UMUM'}</TableCell>
                       <TableCell className="px-2 py-2">
-                        <span className="inline-flex items-center gap-1 py-1 px-2 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          menunggu
-                        </span>
+                        {visit.status ? (
+                          <span className={`inline-flex items-center gap-1 py-1 px-2 rounded-full text-xs font-medium ${
+                            visit.status === 'pending' || visit.status === 'menunggu' ? 'bg-yellow-100 text-yellow-800' :
+                            visit.status === 'processed' ? 'bg-blue-100 text-blue-800' :
+                            (visit.status === 'completed' || visit.status === 'selesai') ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {visit.status === 'pending' || visit.status === 'menunggu' ? 'Terdaftar' :
+                             visit.status === 'processed' ? 'Ditangani' :
+                             (visit.status === 'completed' || visit.status === 'selesai') ? 'Selesai' :
+                             visit.status}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 py-1 px-2 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Terdaftar
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="px-2 py-2 text-center">
                         <Button
@@ -766,18 +777,10 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
         onPatientSelected={handlePatientSelected}
-        onCreateNew={() => {
-          setShowSearchModal(false);
-          setShowCreatePatientModal(true);
-        }}
+        onCreateNew={handleCreateNewPatient}
       />
 
-      {showCreatePatientModal && (
-        <CreatePatientModal
-          onClose={() => setShowCreatePatientModal(false)}
-          onSuccess={handlePatientCreated}
-        />
-      )}
+
 
       {selectedPatient && (
         <AddVisitModal

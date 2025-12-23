@@ -45,7 +45,7 @@ export default function PatientsListPage() {
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(25);
+    const [itemsPerPage, setItemsPerPage] = useState(10); // Reduced from 25 to 10 for faster loading
     const [totalCount, setTotalCount] = useState(0);
 
     useEffect(() => {
@@ -62,24 +62,13 @@ export default function PatientsListPage() {
 
             setTotalCount(count || 0);
 
-            // Fetch paginated data
+            // Fetch paginated data WITHOUT penjamin join for faster loading
             const from = (currentPage - 1) * itemsPerPage;
             const to = from + itemsPerPage - 1;
 
             const { data, error } = await supabase
                 .from('patients')
-                .select(`
-                    *,
-                    patient_penjamin(
-                        nomor_bpjs,
-                        nomor_polis,
-                        nama_asuransi,
-                        penjamin:penjamin_id(
-                            nama,
-                            tipe
-                        )
-                    )
-                `)
+                .select('*')
                 .order('created_at', { ascending: false })
                 .range(from, to);
 
@@ -88,30 +77,64 @@ export default function PatientsListPage() {
 
             if (error) {
                 console.error('🔴 Supabase error:', error);
-                // If join fails, try simple query
-                const { data: simpleData, error: simpleError } = await supabase
-                    .from('patients')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .range(from, to);
-                
-                if (simpleError) throw simpleError;
-                const fetchedData = simpleData || [];
-                console.log('✅ Setting', fetchedData.length, 'patients (simple query)');
-                setPatients(fetchedData);
-                setFilteredData(fetchedData);
-                return;
+                throw error;
             }
             
             const fetchedData = data || [];
             console.log('✅ Setting', fetchedData.length, 'patients to state');
             setPatients(fetchedData);
             setFilteredData(fetchedData);
+            
+            // Lazy load penjamin data after patients are displayed
+            if (fetchedData.length > 0) {
+                fetchPenjaminData(fetchedData);
+            }
         } catch (error) {
             console.error('Error fetching patients:', error);
             toast.error('Gagal memuat data pasien');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchPenjaminData = async (patientsData: any[]) => {
+        try {
+            const patientIds = patientsData.map(p => p.id);
+            
+            const { data: penjaminData, error } = await supabase
+                .from('patient_penjamin')
+                .select(`
+                    patient_id,
+                    nomor_bpjs,
+                    nomor_polis,
+                    nama_asuransi,
+                    penjamin:penjamin_id(
+                        nama,
+                        tipe
+                    )
+                `)
+                .in('patient_id', patientIds);
+
+            if (error) {
+                console.error('Error fetching penjamin:', error);
+                return;
+            }
+
+            // Merge penjamin data with patients
+            const penjaminMap = new Map();
+            (penjaminData || []).forEach(p => {
+                penjaminMap.set(p.patient_id, p);
+            });
+
+            const enrichedPatients = patientsData.map(patient => ({
+                ...patient,
+                patient_penjamin: penjaminMap.get(patient.id) ? [penjaminMap.get(patient.id)] : []
+            }));
+
+            setPatients(enrichedPatients);
+            setFilteredData(enrichedPatients);
+        } catch (error) {
+            console.error('Error fetching penjamin data:', error);
         }
     };
 
@@ -321,15 +344,6 @@ export default function PatientsListPage() {
             {/* Header */}
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        {isFromLoket && returnTo && (
-                            <Button
-                                variant="outline"
-                                onClick={() => router.push(returnTo as string)}
-                                className="flex items-center gap-2"
-                            >
-                                ← Kembali ke Loket {loketId}
-                            </Button>
-                        )}
                         <h1 className="text-2xl font-bold text-blue-600 uppercase">Data Pasien</h1>
                     </div>
                     <Button
@@ -487,7 +501,12 @@ export default function PatientsListPage() {
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
-                                                            onClick={() => router.push(`/counter/patients/detail/${patient.id}`)}
+                                                            onClick={() => {
+                                                                const url = returnTo 
+                                                                    ? `/counter/patients/detail/${patient.id}?returnTo=${encodeURIComponent(returnTo as string)}`
+                                                                    : `/counter/patients/detail/${patient.id}`;
+                                                                router.push(url);
+                                                            }}
                                                             title="Lihat Detail"
                                                         >
                                                             <Eye className="text-green-600 hover:text-green-700 w-4 h-4" />
@@ -495,7 +514,12 @@ export default function PatientsListPage() {
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
-                                                            onClick={() => router.push(`/counter/patients/edit/${patient.id}`)}
+                                                            onClick={() => {
+                                                                const url = returnTo 
+                                                                    ? `/counter/patients/edit/${patient.id}?returnTo=${encodeURIComponent(returnTo as string)}`
+                                                                    : `/counter/patients/edit/${patient.id}`;
+                                                                router.push(url);
+                                                            }}
                                                             title="Edit"
                                                         >
                                                             <Pencil className="text-yellow-600 hover:text-yellow-700 w-4 h-4" />

@@ -712,16 +712,17 @@ export default function AdminCounterPage() {
                       <TableCell className="px-2 py-2 text-xs">{visit.doctors?.nama || '-'}</TableCell>
                       <TableCell className="px-2 py-2 text-xs">{visit.payment_methods?.nama || 'UMUM'}</TableCell>
                       <TableCell className="px-2 py-2">
-                        {visit.queue_tickets && visit.queue_tickets.status ? (
+                        {visit.status ? (
                           <span className={`inline-flex items-center gap-1 py-1 px-2 rounded-full text-xs font-medium ${
-                            visit.queue_tickets.status === 'called' ? 'bg-green-100 text-green-800' :
-                            visit.queue_tickets.status === 'waiting' ? 'bg-yellow-100 text-yellow-800' :
-                            visit.queue_tickets.status === 'finished' ? 'bg-gray-100 text-gray-800' :
-                            'bg-orange-100 text-orange-800'
+                            visit.status === 'pending' || visit.status === 'menunggu' ? 'bg-yellow-100 text-yellow-800' :
+                            visit.status === 'processed' ? 'bg-blue-100 text-blue-800' :
+                            (visit.status === 'completed' || visit.status === 'selesai') ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
                           }`}>
-                            {visit.queue_tickets.status === 'called' ? 'dipanggil' :
-                             visit.queue_tickets.status === 'waiting' ? 'menunggu' :
-                             visit.queue_tickets.status === 'finished' ? 'selesai' : visit.queue_tickets.status}
+                            {visit.status === 'pending' || visit.status === 'menunggu' ? 'Terdaftar' :
+                             visit.status === 'processed' ? 'Ditangani' :
+                             (visit.status === 'completed' || visit.status === 'selesai') ? 'Selesai' :
+                             visit.status}
                           </span>
                         ) : (
                           <span className="text-gray-400 text-xs">-</span>

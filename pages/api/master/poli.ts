@@ -9,6 +9,14 @@ const READ_ROLES = [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.LOKET, ROLES.DOKTER, RO
 const WRITE_ROLES = [ROLES.SUPERADMIN];
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Check role for write operations
+  if (req.method !== "GET") {
+    const user = (req as any).user;
+    if (!user || user.role !== ROLES.SUPERADMIN) {
+      return fail(res, "Unauthorized: Superadmin access required", 403);
+    }
+  }
+
   // GET - List all poli
   if (req.method === "GET") {
     const { data, error } = await supabaseServer
@@ -21,7 +29,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   // POST - Create new poli
   if (req.method === "POST") {
-    const { nama, kode, harga_daftar } = req.body;
+    const { nama, kode, harga_daftar, kuota_harian } = req.body;
 
     if (!nama || !harga_daftar) {
       return fail(res, "Nama dan harga_daftar required", 400);
@@ -29,7 +37,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data, error } = await supabaseServer
       .from("poli")
-      .insert({ nama, kode, harga_daftar })
+      .insert({ nama, kode, harga_daftar, kuota_harian })
       .select()
       .single();
 
@@ -39,7 +47,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   // PUT - Update poli
   if (req.method === "PUT") {
-    const { id, nama, kode, harga_daftar } = req.body;
+    const { id, nama, kode, harga_daftar, kuota_harian } = req.body;
 
     if (!id) {
       return fail(res, "ID required", 400);
@@ -47,7 +55,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data, error } = await supabaseServer
       .from("poli")
-      .update({ nama, kode, harga_daftar })
+      .update({ nama, kode, harga_daftar, kuota_harian })
       .eq("id", id)
       .select()
       .single();
@@ -76,4 +84,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   return fail(res, "Method not allowed", 405);
 }
 
-export default withAuth(withRoles(WRITE_ROLES, handler));
+// Apply role-based access control
+// GET is allowed for all authenticated users
+// POST/PUT/DELETE only for SUPERADMIN
+export default withAuth(handler);
