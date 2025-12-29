@@ -1,25 +1,21 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { LayoutDashboard, LogOut, User, Users, Activity, Calendar } from 'lucide-react';
+import { LayoutDashboard, LogOut, User, Receipt } from 'lucide-react';
 
-interface DoctorLayoutProps {
+interface CashierLayoutProps {
     children: ReactNode;
 }
 
-export default function DoctorLayout({ children }: DoctorLayoutProps) {
+export default function CashierLayout({ children }: CashierLayoutProps) {
     const router = useRouter();
     const [userName, setUserName] = useState('');
-    const [poliName, setPoliName] = useState('');
 
     useEffect(() => {
         const user = localStorage.getItem('user');
         if (user) {
             const userData = JSON.parse(user);
-            setUserName(userData.nama || 'Dokter');
-
-            // You can fetch poli info here if needed
-            // For now, we'll leave it empty or fetch from API
+            setUserName(userData.nama || 'Kasir');
         }
     }, []);
 
@@ -29,9 +25,7 @@ export default function DoctorLayout({ children }: DoctorLayoutProps) {
     };
 
     const menuItems = [
-        { href: '/doctor', icon: LayoutDashboard, label: 'Dashboard' },
-        { href: '/doctor/patients/history', icon: Users, label: 'Riwayat Kunjungan' },
-        { href: '/doctor/schedule', icon: Calendar, label: 'Jadwal Praktik' },
+        { href: '/cashier', icon: LayoutDashboard, label: 'Dashboard' },
     ];
 
     return (
@@ -42,11 +36,11 @@ export default function DoctorLayout({ children }: DoctorLayoutProps) {
                 <div className="p-6 border-b border-gray-200">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-600 p-2 rounded-lg">
-                            <Activity className="w-6 h-6 text-white" />
+                            <Receipt className="w-6 h-6 text-white" />
                         </div>
                         <div>
                             <h1 className="text-lg font-bold text-gray-900">SIMRS</h1>
-                            <p className="text-xs text-gray-500">Poliklinik | Dokter</p>
+                            <p className="text-xs text-gray-500">Panel Kasir</p>
                         </div>
                     </div>
                 </div>
@@ -55,18 +49,8 @@ export default function DoctorLayout({ children }: DoctorLayoutProps) {
                 <nav className="flex-1 px-4 py-6 overflow-y-auto">
                     <div className="space-y-1">
                         {menuItems.map((item) => {
-                            // Check if current path matches menu item
-                            let isActive = router.pathname === item.href;
+                            const isActive = router.pathname === item.href;
 
-                            // Special case: Keep "Riwayat Kunjungan" active when navigating from history
-                            if (item.href === '/doctor/patients/history' && router.query.from === 'history') {
-                                isActive = true;
-                            }
-
-                            // Special case: Keep "Dashboard" active when navigating from dashboard
-                            if (item.href === '/doctor' && router.query.from === 'dashboard') {
-                                isActive = true;
-                            }
                             return (
                                 <Link
                                     key={item.href}
@@ -92,7 +76,7 @@ export default function DoctorLayout({ children }: DoctorLayoutProps) {
                         </div>
                         <div className="flex-1">
                             <p className="text-sm font-medium text-gray-900 break-words">{userName}</p>
-                            <p className="text-xs text-gray-500">Dokter</p>
+                            <p className="text-xs text-gray-500">Kasir</p>
                         </div>
                     </div>
                     <button

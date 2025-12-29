@@ -4,6 +4,19 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { fail, ok } from "@/lib/api/respond";
 import { signToken } from "@/lib/auth/jwt";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
+import { rateLimiter } from "@/lib/rate-limiter";
+
+/**
+ * Get client IP address from request
+ */
+function getClientIP(req: NextApiRequest): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = forwarded
+    ? (typeof forwarded === 'string' ? forwarded.split(',')[0] : forwarded[0])
+    : req.socket.remoteAddress || 'unknown';
+  return ip;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return fail(res, "Method not allowed", 405);
@@ -12,7 +25,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!username || !password) return fail(res, "username & password required", 400);
 
-  console.log("🔍 Login attempt:", { username });
+  // Get client IP for rate limiting
+  const clientIP = getClientIP(req);
+
+  // Check rate limit BEFORE querying database
+  const rateCheck = rateLimiter.check(clientIP, username);
+
+  if (!rateCheck.allowed) {
+    console.log(`🚫 Rate limit exceeded for ${username} from ${clientIP}`);
+    return fail(res, rateCheck.message || "Too many login attempts", 429);
+  }
+
+  console.log(`🔍 Login attempt: ${username} from ${clientIP} (${rateCheck.remainingAttempts} attempts remaining)`);
 
   const { data: user, error } = await supabaseServer
     .from("users")
@@ -31,7 +55,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (error || !user) {
     console.log("❌ User not found or query error");
-    return fail(res, "Invalid credentials", 401);
+    // Record failed attempt
+    rateLimiter.recordFailure(clientIP, username);
+    const remaining = rateLimiter.check(clientIP, username).remainingAttempts || 0;
+    const message = remaining > 0
+      ? `Invalid credentials. ${remaining} attempts remaining.`
+      : "Invalid credentials";
+    return fail(res, message, 401);
   }
 
   // Check if account is active
@@ -40,17 +70,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return fail(res, "Account is inactive. Please contact administrator.", 403);
   }
 
-  // PROTOTYPE: Simple password comparison (plain text)
-  console.log("🔐 Comparing passwords...");
-  const isPasswordValid = password === user.password;
+  // CRITICAL FIX: Record attempt BEFORE password check
+  // This prevents bypass by entering correct password after failed attempts
+  rateLimiter.recordFailure(clientIP, username);
+
+  // Check AGAIN after recording - if now exceeded, block immediately
+  const recheckAfterRecord = rateLimiter.check(clientIP, username);
+  if (!recheckAfterRecord.allowed) {
+    console.log(`🚫 Rate limit exceeded after recording attempt for ${username} from ${clientIP}`);
+    return fail(res, recheckAfterRecord.message || "Too many login attempts", 429);
+  }
+
+  // Secure password comparison using bcrypt
+  console.log("🔐 Verifying password with bcrypt...");
+  const isPasswordValid = await bcrypt.compare(password, user.password);
   console.log("🔐 Password valid:", isPasswordValid);
 
   if (!isPasswordValid) {
     console.log("❌ Invalid password");
-    return fail(res, "Invalid credentials", 401);
+    // Record failed attempt
+    rateLimiter.recordFailure(clientIP, username);
+    const remaining = rateLimiter.check(clientIP, username).remainingAttempts || 0;
+    const message = remaining > 0
+      ? `Invalid credentials. ${remaining} attempts remaining.`
+      : "Invalid credentials";
+    return fail(res, message, 401);
   }
 
-  console.log("✅ Login successful");
+  // Password is correct - reset rate limiter
+  console.log("✅ Login successful - resetting rate limiter");
+  rateLimiter.reset(clientIP, username);
 
   // === SESSION MANAGEMENT ===
   // 1. Invalidate all existing active sessions for this user (single session enforcement)

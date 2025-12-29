@@ -52,7 +52,7 @@ export default function NurseLayout({ children }: NurseLayoutProps) {
                         </div>
                         <div>
                             <h1 className="text-lg font-bold text-gray-900">SIMRS</h1>
-                            <p className="text-xs text-gray-500">Panel Perawat</p>
+                            <p className="text-xs text-gray-500">Poliklinik | Perawat</p>
                         </div>
                     </div>
                 </div>

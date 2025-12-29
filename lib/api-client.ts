@@ -1,182 +1,261 @@
-// Interfaces for API responses
-export interface Poli {
-  id: string;
-  name: string;
-  code: string;
-  harga_daftar: number;
+/**
+ * API Client with Error Handling
+ * 
+ * Handles:
+ * - Session expiration (single session enforcement)
+ * - Authentication errors (401, 403)
+ * - Network errors
+ * - Non-JSON responses (HTML redirects)
+ * - Server errors (500, etc)
+ */
+
+interface ApiClientOptions extends RequestInit {
+  skipAuth?: boolean; // For public endpoints like login
 }
 
-export interface Doctor {
-  id: string;
-  name: string;
-  clinic: string;
-  specialization: string;
+interface ApiError {
+  message: string;
+  status?: number;
+  code?: string;
 }
 
-export interface PaymentMethod {
-  id: string;
-  name: string;
-  code: string;
-  description: string;
+class ApiClientError extends Error {
+  status?: number;
+  code?: string;
+
+  constructor(message: string, status?: number, code?: string) {
+    super(message);
+    this.name = 'ApiClientError';
+    this.status = status;
+    this.code = code;
+  }
 }
 
-// Fetch poli (using simple API for dropdown - no auth needed)
-export async function fetchPoli(): Promise<Poli[]> {
+/**
+ * Main API client function
+ */
+export async function apiClient<T = any>(
+  url: string,
+  options: ApiClientOptions = {}
+): Promise<T> {
+  const { skipAuth = false, ...fetchOptions } = options;
+
   try {
-    const response = await fetch('/api/poli');
-    if (!response.ok) {
-      console.error('Fetch poli failed:', response.status, response.statusText);
-      throw new Error('Failed to fetch poli');
+    const response = await fetch(url, {
+      ...fetchOptions,
+      credentials: 'include', // Always include cookies for auth
+      headers: {
+        'Content-Type': 'application/json',
+        ...fetchOptions.headers,
+      },
+    });
+
+    // === HANDLE REDIRECTS ===
+    // If redirected to login, session is invalid
+    if (response.redirected && response.url.includes('/login')) {
+      console.warn('🔒 Session expired - redirecting to login');
+      handleSessionExpired('session_expired');
+      throw new ApiClientError('Session expired', 401, 'SESSION_EXPIRED');
     }
-    const result = await response.json();
-    return result.data || [];
-  } catch (error) {
-    console.error('Error fetching poli:', error);
-    return [];
-  }
-}
 
-// Fetch all doctors from simple API (no auth needed)
-export async function fetchAllDoctors(): Promise<Doctor[]> {
-  try {
-    const response = await fetch('/api/doctors');
+    // === HANDLE HTTP ERRORS ===
     if (!response.ok) {
-      console.error('Fetch doctors failed:', response.status, response.statusText);
-      throw new Error('Failed to fetch doctors');
+      return handleErrorResponse(response);
     }
-    const result = await response.json();
-    return result.data || [];
+
+    // === HANDLE RESPONSE ===
+    return await handleSuccessResponse<T>(response);
   } catch (error) {
-    console.error('Error fetching doctors:', error);
-    return [];
-  }
-}
-
-// Fetch doctors by clinic (filter client-side)
-export async function fetchDoctorsByClinic(clinic: string): Promise<Doctor[]> {
-  const allDoctors = await fetchAllDoctors();
-  return allDoctors.filter((doc) => doc.clinic === clinic);
-}
-
-// Fetch payment methods (using simple API for dropdown - no auth needed)
-export async function fetchPaymentMethods(): Promise<PaymentMethod[]> {
-  try {
-    const response = await fetch('/api/penjamin');
-    if (!response.ok) {
-      console.error('Fetch payment methods failed:', response.status, response.statusText);
-      throw new Error('Failed to fetch payment methods');
+    // Network errors, parsing errors, etc
+    if (error instanceof ApiClientError) {
+      throw error;
     }
-    const result = await response.json();
-    return result.data || [];
-  } catch (error) {
-    console.error('Error fetching payment methods:', error);
-    return [];
+
+    console.error('❌ API Client Error:', error);
+    throw new ApiClientError(
+      'Network error or server unavailable',
+      0,
+      'NETWORK_ERROR'
+    );
   }
 }
 
-// Region API types
-export interface Province {
-  code: string;
-  name: string;
+/**
+ * Handle successful responses
+ */
+async function handleSuccessResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get('content-type');
+
+  // Check if response is JSON
+  if (contentType && contentType.includes('application/json')) {
+    const data = await response.json();
+
+    // Handle API response format: { data, error }
+    if (data.error) {
+      throw new ApiClientError(data.error, response.status, 'API_ERROR');
+    }
+
+    // Return data directly if it exists, otherwise return whole response
+    return (data.data !== undefined ? data.data : data) as T;
+  }
+
+  // Got HTML instead of JSON - probably a redirect we missed
+  if (contentType && contentType.includes('text/html')) {
+    console.warn('⚠️ Received HTML instead of JSON - session might be invalid');
+    handleSessionExpired('invalid_response');
+    throw new ApiClientError(
+      'Invalid response format - session expired',
+      401,
+      'INVALID_RESPONSE'
+    );
+  }
+
+  // For other content types, try to parse as text
+  const text = await response.text();
+  return text as unknown as T;
 }
 
-export interface City {
-  code: string;
-  name: string;
+/**
+ * Handle error responses (4xx, 5xx)
+ */
+async function handleErrorResponse(response: Response): Promise<never> {
+  const contentType = response.headers.get('content-type');
+  let errorMessage = `Request failed with status ${response.status}`;
+  let errorCode = 'HTTP_ERROR';
+
+  // Try to parse error message from JSON response
+  if (contentType && contentType.includes('application/json')) {
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorData.message || errorMessage;
+    } catch (e) {
+      // Failed to parse error JSON, use default message
+    }
+  }
+
+  // Handle specific status codes
+  switch (response.status) {
+    case 401:
+      console.warn('🔒 Unauthorized - redirecting to login');
+      handleSessionExpired('unauthorized');
+      errorCode = 'UNAUTHORIZED';
+      break;
+
+    case 403:
+      console.warn('🚫 Forbidden - insufficient permissions');
+      errorMessage = 'You do not have permission to access this resource';
+      errorCode = 'FORBIDDEN';
+      break;
+
+    case 404:
+      errorMessage = 'Resource not found';
+      errorCode = 'NOT_FOUND';
+      break;
+
+    case 500:
+      errorMessage = 'Internal server error - please try again later';
+      errorCode = 'SERVER_ERROR';
+      break;
+
+    case 503:
+      errorMessage = 'Service temporarily unavailable';
+      errorCode = 'SERVICE_UNAVAILABLE';
+      break;
+  }
+
+  throw new ApiClientError(errorMessage, response.status, errorCode);
 }
 
-export interface District {
-  code: string;
-  name: string;
-}
+/**
+ * Handle session expiration
+ */
+function handleSessionExpired(reason: string) {
+  // Clear user data from localStorage
+  if (typeof window !== 'undefined') {
+    // Clear ALL auth data
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    sessionStorage.clear();
 
-export interface Village {
-  code: string;
-  name: string;
-  postal_code: string;
-}
+    // Get current path for redirect after login
+    const currentPath = window.location.pathname;
 
+    // Show toast notification
+    const messages: Record<string, string> = {
+      session_expired: 'Sesi Anda telah berakhir',
+      session_invalidated: 'Anda telah login dari perangkat lain',
+      unauthorized: 'Sesi Anda tidak valid',
+      invalid_response: 'Terjadi kesalahan pada sesi Anda',
+    };
 
-// Fetch provinces
-export async function fetchProvinces(): Promise<Province[]> {
-  try {
-    const response = await fetch('/api/provinces');
-    if (!response.ok) throw new Error('Failed to fetch provinces');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching provinces:', error);
-    return [];
+    const message = messages[reason] || 'Sesi Anda tidak valid';
+
+    // Show toast
+    import('react-hot-toast').then(({ default: toast }) => {
+      toast.error(`${message}. Silakan login kembali.`, {
+        duration: 3000,
+        position: 'top-center',
+        style: {
+          background: '#EF4444',
+          color: '#fff',
+          fontWeight: '600',
+        },
+      });
+    });
+
+    // Build login URL
+    const loginUrl = `/login?redirect=${encodeURIComponent(currentPath)}&reason=${reason}`;
+
+    // AGGRESSIVE REDIRECT - Multiple fallback methods
+    setTimeout(() => {
+      // Try window.location.replace first (prevents back button, forces reload)
+      try {
+        window.location.replace(loginUrl);
+      } catch (e) {
+        // Fallback to href
+        window.location.href = loginUrl;
+      }
+
+      // Force reload if still on same page after 300ms
+      setTimeout(() => {
+        if (window.location.pathname !== '/login') {
+          window.location.reload();
+        }
+      }, 300);
+    }, 700); // 700ms delay to show toast
   }
 }
 
-// Fetch cities by province
-export async function fetchCitiesByProvince(provinceId: string): Promise<City[]> {
-  try {
-    const response = await fetch(`/api/cities?provinceId=${encodeURIComponent(provinceId)}`);
-    if (!response.ok) throw new Error('Failed to fetch cities');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching cities:', error);
-    return [];
-  }
-}
+/**
+ * Convenience methods for common HTTP methods
+ */
+export const api = {
+  get: <T = any>(url: string, options?: ApiClientOptions) =>
+    apiClient<T>(url, { ...options, method: 'GET' }),
 
-// Fetch all cities
-export async function fetchAllCities(): Promise<City[]> {
-  try {
-    const response = await fetch('/api/cities');
-    if (!response.ok) throw new Error('Failed to fetch cities');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching cities:', error);
-    return [];
-  }
-}
+  post: <T = any>(url: string, data?: any, options?: ApiClientOptions) =>
+    apiClient<T>(url, {
+      ...options,
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
 
-// Fetch districts by city
-export async function fetchDistrictsByCity(cityId: string): Promise<District[]> {
-  try {
-    const response = await fetch(`/api/districts?cityId=${encodeURIComponent(cityId)}`);
-    if (!response.ok) throw new Error('Failed to fetch districts');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching districts:', error);
-    return [];
-  }
-}
+  put: <T = any>(url: string, data?: any, options?: ApiClientOptions) =>
+    apiClient<T>(url, {
+      ...options,
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
 
-// Fetch all districts
-export async function fetchAllDistricts(): Promise<District[]> {
-  try {
-    const response = await fetch('/api/districts');
-    if (!response.ok) throw new Error('Failed to fetch districts');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching districts:', error);
-    return [];
-  }
-}
+  patch: <T = any>(url: string, data?: any, options?: ApiClientOptions) =>
+    apiClient<T>(url, {
+      ...options,
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
 
-// Fetch villages by district
-export async function fetchVillagesByDistrict(districtId: string): Promise<Village[]> {
-  try {
-    const response = await fetch(`/api/villages?districtId=${encodeURIComponent(districtId)}`);
-    if (!response.ok) throw new Error('Failed to fetch villages');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching villages:', error);
-    return [];
-  }
-}
+  delete: <T = any>(url: string, options?: ApiClientOptions) =>
+    apiClient<T>(url, { ...options, method: 'DELETE' }),
+};
 
-// Fetch all villages
-export async function fetchAllVillages(): Promise<Village[]> {
-  try {
-    const response = await fetch('/api/villages');
-    if (!response.ok) throw new Error('Failed to fetch villages');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching villages:', error);
-    return [];
-  }
-}
+export default api;

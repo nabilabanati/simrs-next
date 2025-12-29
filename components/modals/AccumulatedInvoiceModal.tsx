@@ -143,7 +143,7 @@ export default function AccumulatedInvoiceModal({ open, onClose, visitId }: Accu
                             <div className="text-center mb-6">
                                 <h2 className="text-xl font-bold">INVOICE PEMBAYARAN</h2>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    (Rujukan Internal - Akumulasi Biaya)
+                                    (Akumulasi Biaya)
                                 </p>
                             </div>
 

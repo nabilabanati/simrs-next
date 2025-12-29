@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Lock, User, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Lock, User, Eye, EyeOff, Activity } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +18,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
+    // Wait for router to be ready to avoid infinite loops
+    if (!router.isReady) return;
+
     // Check if already logged in (user data exists)
     // Token is in HttpOnly cookie, so we don't check localStorage for it
     const user = localStorage.getItem("user");
@@ -25,8 +28,25 @@ export default function LoginPage() {
     if (user) {
       const userData = JSON.parse(user);
       redirectByRole(userData.role, userData.id);
+      return;
     }
-  }, [router]);
+
+    // Check for session expiration or error messages from URL
+    const { reason } = router.query;
+    if (reason) {
+      const messages: Record<string, string> = {
+        session_expired: "Sesi Anda telah berakhir. Silakan login kembali.",
+        session_invalidated: "Anda telah login dari perangkat lain. Silakan login kembali.",
+        unauthorized: "Sesi Anda tidak valid. Silakan login kembali.",
+        invalid_response: "Terjadi kesalahan. Silakan login kembali.",
+      };
+
+      const message = messages[reason as string];
+      if (message) {
+        setError(message);
+      }
+    }
+  }, [router.isReady, router.query]);
 
   const redirectByRole = async (role: string, userId?: string) => {
     // For role 'loket', check their assignment and redirect to first assigned loket
@@ -88,7 +108,7 @@ export default function LoginPage() {
         // Only store user info (non-sensitive data)
         localStorage.setItem("user", JSON.stringify(json.data.user));
 
-        console.log("✅ Login successful, session expires at:", json.data.sessionExpiresAt);
+        console.log("Login successful, session expires at:", json.data.sessionExpiresAt);
 
         // Redirect based on role
         await redirectByRole(json.data.user.role, json.data.user.id);
@@ -104,110 +124,134 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="w-full max-w-md px-4">
-        <Card className="shadow-xl">
-          <CardHeader className="space-y-1 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="bg-blue-100 p-3 rounded-full">
-                <Lock className="h-8 w-8 text-blue-600" />
-              </div>
+    <div className="min-h-screen flex">
+      {/* Left Panel - Hospital Photo Background */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        {/* Background Image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: 'url(/photos/rsud.webp)' }}
+        />
+
+        {/* Blue Overlay */}
+        <div className="absolute inset-0 bg-blue-900/50" />
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
+          <div className="mb-8">
+            {/* Logos */}
+            <div className="flex items-center justify-center gap-8 mb-8">
+              <img
+                src="/photos/cv.png"
+                alt="Logo CV"
+                className="h-25 object-contain"
+              />
+              {/* <img
+                src="/photos/drs.png"
+                alt="Logo Tegal"
+                className="h-30 object-contain"
+              /> */}
+              <img
+                src="/photos/tegal.svg"
+                alt="Logo Tegal"
+                className="h-25 object-contain"
+              />
             </div>
-            <CardTitle className="text-2xl font-bold">SIMRS Login</CardTitle>
-            <CardDescription>
-              Sistem Informasi Manajemen Rumah Sakit
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="username"
-                    type="text"
-                    placeholder="Masukkan username"
-                    value={formData.username}
-                    onChange={(e) =>
-                      setFormData({ ...formData, username: e.target.value })
-                    }
-                    className="pl-10"
-                    required
-                    disabled={loading}
-                    autoComplete="username"
-                  />
-                </div>
-              </div>
+            <h1 className="text-2xl font-semibold mb-2 text-center">
+              SISTEM INFORMASI MANAJEMEN RUMAH SAKIT
+            </h1>
+            <p className="text-blue-100 text-xl leading-relaxed text-center">
+              PROTOTIPE CV DIGITALOGI
+            </p>
+          </div>
+        </div>
+      </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Masukkan password"
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    className="pl-10 pr-10"
-                    required
-                    disabled={loading}
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
+      {/* Right Panel - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white p-8">
+        <div className="w-full max-w-md">
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Selamat Datang!</h2>
+            <p className="text-gray-600">Masuk untuk mengakses SIMRS</p>
+          </div>
 
-              <Button
-                type="submit"
-                className="w-full"
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="username" className="text-sm font-medium text-gray-700">
+                Username
+              </Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Masukkan username"
+                value={formData.username}
+                onChange={(e) =>
+                  setFormData({ ...formData, username: e.target.value })
+                }
+                className="h-11"
+                required
                 disabled={loading}
-              >
-                {loading ? "Logging in..." : "Login"}
-              </Button>
-            </form>
+                autoComplete="username"
+              />
+            </div>
 
-            {/* Test Credentials */}
-            <div className="mt-6 pt-6 border-t">
-              <p className="text-xs text-center text-gray-500 mb-2">
-                Test Credentials:
-              </p>
-              <div className="bg-gray-50 p-3 rounded text-xs space-y-1">
-                <p>
-                  <span className="font-semibold">Super Admin:</span>{" "}
-                  <code className="bg-white px-1 py-0.5 rounded">superadmin</code> /{" "}
-                  <code className="bg-white px-1 py-0.5 rounded">passsuperadmin</code>
-                </p>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Masukkan password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  className="h-11 pr-10"
+                  required
+                  disabled={loading}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Footer */}
-        <p className="text-center text-sm text-gray-600 mt-6">
-          © 2025 SIMRS. All rights reserved.
-        </p>
+            <Button
+              type="submit"
+              className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+              disabled={loading}
+            >
+              {loading ? "Logging in..." : "Login"}
+            </Button>
+          </form>
+
+          {/* Footer */}
+          <p className="text-center text-xs text-gray-500 mt-8">
+            © 2025 Digitalogi. All rights reserved.
+          </p>
+        </div>
       </div>
     </div>
   );
