@@ -1,8 +1,8 @@
 /**
- * Rate Limiter for Login Attempts
+ * Rate Limiter for Login Attempts - IP-Only Version
  * 
- * Prevents brute force attacks by limiting login attempts:
- * - Max 5 attempts per IP + Username combination
+ * Prevents brute force attacks with IP-based rate limiting:
+ * - Max 5 attempts per IP (all usernames combined)
  * - 5 minute lockout after exceeding limit
  * - Automatic cleanup of old entries
  */
@@ -14,13 +14,14 @@ interface RateLimitAttempt {
 }
 
 class RateLimiter {
-    private attempts = new Map<string, RateLimitAttempt>();
-    private readonly maxAttempts = 5;
-    private readonly windowMs = 5 * 60 * 1000; // 5 minutes
+    private ipAttempts = new Map<string, RateLimitAttempt>();
+
+    private readonly maxAttempts = 5;           // Per IP (all usernames)
+    private readonly windowMs = 5 * 60 * 1000;  // 5 minutes
     private readonly lockDurationMs = 5 * 60 * 1000; // 5 minutes
 
     /**
-     * Check if request is allowed
+     * Check if request is allowed (IP-based only)
      */
     check(ip: string, username: string): {
         allowed: boolean;
@@ -28,20 +29,19 @@ class RateLimiter {
         remainingTime?: number;
         message?: string;
     } {
-        const key = this.getKey(ip, username);
-        const attempt = this.attempts.get(key);
+        const ipAttempt = this.ipAttempts.get(ip);
 
         // No previous attempts - allow
-        if (!attempt) {
+        if (!ipAttempt) {
             return {
                 allowed: true,
                 remainingAttempts: this.maxAttempts
             };
         }
 
-        // Check if currently locked
-        if (attempt.lockedUntil && Date.now() < attempt.lockedUntil) {
-            const remainingMs = attempt.lockedUntil - Date.now();
+        // Check if IP is locked
+        if (ipAttempt.lockedUntil && Date.now() < ipAttempt.lockedUntil) {
+            const remainingMs = ipAttempt.lockedUntil - Date.now();
             let remainingMinutes = Math.floor(remainingMs / 60000);
             let remainingSeconds = Math.ceil((remainingMs % 60000) / 1000);
 
@@ -61,20 +61,19 @@ class RateLimiter {
         }
 
         // Reset if window expired
-        if (Date.now() - attempt.firstAttempt > this.windowMs) {
-            this.attempts.delete(key);
+        if (Date.now() - ipAttempt.firstAttempt > this.windowMs) {
+            this.ipAttempts.delete(ip);
             return {
                 allowed: true,
                 remainingAttempts: this.maxAttempts
             };
         }
 
-        // Check if at or exceeded max attempts
-        // Block ALL attempts (even with correct password) if limit reached
-        if (attempt.count >= this.maxAttempts) {
-            // Lock the account
-            attempt.lockedUntil = Date.now() + this.lockDurationMs;
-            this.attempts.set(key, attempt);
+        // Check if exceeded IP limit
+        if (ipAttempt.count >= this.maxAttempts) {
+            // Lock the IP
+            ipAttempt.lockedUntil = Date.now() + this.lockDurationMs;
+            this.ipAttempts.set(ip, ipAttempt);
 
             return {
                 allowed: false,
@@ -84,16 +83,7 @@ class RateLimiter {
         }
 
         // Still have attempts remaining
-        const remaining = this.maxAttempts - attempt.count;
-
-        // If this is the last attempt, warn user
-        if (remaining === 1) {
-            return {
-                allowed: true,
-                remainingAttempts: remaining,
-                message: `Ini adalah percobaan terakhir Anda. Setelah ini akun akan diblokir selama 5 menit.`
-            };
-        }
+        const remaining = this.maxAttempts - ipAttempt.count;
 
         return {
             allowed: true,
@@ -102,35 +92,32 @@ class RateLimiter {
     }
 
     /**
-     * Record a failed login attempt
+     * Record a failed login attempt (IP-based)
      */
     recordFailure(ip: string, username: string): void {
-        const key = this.getKey(ip, username);
-        const attempt = this.attempts.get(key);
+        const ipAttempt = this.ipAttempts.get(ip);
 
-        if (!attempt) {
-            // First failed attempt
-            this.attempts.set(key, {
+        if (!ipAttempt) {
+            this.ipAttempts.set(ip, {
                 count: 1,
                 firstAttempt: Date.now(),
                 lockedUntil: null,
             });
         } else {
-            // Increment count
-            attempt.count++;
-            this.attempts.set(key, attempt);
+            ipAttempt.count++;
+            this.ipAttempts.set(ip, ipAttempt);
         }
 
         // Log for monitoring
-        console.log(`🚫 Failed login attempt ${attempt?.count || 1}/${this.maxAttempts} for ${username} from ${ip}`);
+        const currentCount = this.ipAttempts.get(ip)?.count || 1;
+        console.log(`🚫 Failed login attempt ${currentCount}/${this.maxAttempts} for ${username} from ${ip}`);
     }
 
     /**
      * Reset attempts (on successful login)
      */
     reset(ip: string, username: string): void {
-        const key = this.getKey(ip, username);
-        this.attempts.delete(key);
+        this.ipAttempts.delete(ip);
         console.log(`✅ Rate limit reset for ${username} from ${ip}`);
     }
 
@@ -138,15 +125,7 @@ class RateLimiter {
      * Get current attempt info (for debugging)
      */
     getAttemptInfo(ip: string, username: string): RateLimitAttempt | null {
-        const key = this.getKey(ip, username);
-        return this.attempts.get(key) || null;
-    }
-
-    /**
-     * Generate unique key for IP + Username combination
-     */
-    private getKey(ip: string, username: string): string {
-        return `${ip}:${username.toLowerCase()}`;
+        return this.ipAttempts.get(ip) || null;
     }
 
     /**
@@ -156,15 +135,15 @@ class RateLimiter {
         const now = Date.now();
         let cleaned = 0;
 
-        for (const [key, attempt] of this.attempts.entries()) {
+        for (const [ip, attempt] of this.ipAttempts.entries()) {
             // Remove if window expired and not locked
             if (now - attempt.firstAttempt > this.windowMs && !attempt.lockedUntil) {
-                this.attempts.delete(key);
+                this.ipAttempts.delete(ip);
                 cleaned++;
             }
             // Remove if lock expired
             else if (attempt.lockedUntil && now > attempt.lockedUntil) {
-                this.attempts.delete(key);
+                this.ipAttempts.delete(ip);
                 cleaned++;
             }
         }
@@ -179,14 +158,14 @@ class RateLimiter {
      */
     getStats(): {
         totalEntries: number;
-        lockedAccounts: number;
+        lockedIPs: number;
         activeAttempts: number;
     } {
         const now = Date.now();
         let locked = 0;
         let active = 0;
 
-        for (const attempt of this.attempts.values()) {
+        for (const attempt of this.ipAttempts.values()) {
             if (attempt.lockedUntil && now < attempt.lockedUntil) {
                 locked++;
             } else if (attempt.count > 0) {
@@ -195,8 +174,8 @@ class RateLimiter {
         }
 
         return {
-            totalEntries: this.attempts.size,
-            lockedAccounts: locked,
+            totalEntries: this.ipAttempts.size,
+            lockedIPs: locked,
             activeAttempts: active,
         };
     }

@@ -64,7 +64,6 @@ export default function LoginPage() {
           router.push(`/counter/loket-${assignments[0].loket_id}`);
           return;
         } else {
-          // No assignment - show error
           setError("Anda belum di-assign ke loket manapun. Hubungi admin.");
           return;
         }
