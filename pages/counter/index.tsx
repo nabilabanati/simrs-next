@@ -11,10 +11,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Users, Clock, Download, Activity, LayoutGrid } from 'lucide-react';
+import { Users, Clock, Download, Activity, LayoutGrid, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { fetchPoli, fetchAllDoctors, fetchPaymentMethods } from '@/lib/api-client';
-import type { Poli, Doctor, PaymentMethod } from '@/lib/api-client';
+import { fetchPoli, fetchDoctors, fetchPenjamin } from '@/lib/api-client/index';
+import type { Poli, Doctor } from '@/lib/types';
+
+// Type for penjamin data (payment methods)
+interface PaymentMethod {
+  id: string;
+  name?: string;
+  nama?: string;
+  tipe?: string;
+}
 
 export default function AdminCounterPage() {
   const router = useRouter();
@@ -45,6 +53,7 @@ export default function AdminCounterPage() {
   const [filterDokter, setFilterDokter] = useState('');
   const [filterPenjamin, setFilterPenjamin] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [showFilter, setShowFilter] = useState(true);
   
   // API data states
   const [polis, setPolis] = useState<Poli[]>([]);
@@ -105,8 +114,8 @@ export default function AdminCounterPage() {
       try {
         const [polisData, doctorsData, paymentsData] = await Promise.all([
           fetchPoli(),
-          fetchAllDoctors(),
-          fetchPaymentMethods(),
+          fetchDoctors(),
+          fetchPenjamin(),
         ]);
         setPolis(polisData);
         setDoctors(doctorsData);
@@ -495,9 +504,30 @@ export default function AdminCounterPage() {
 
           {/* Filter Section */}
           <div className="bg-blue-50 p-6 rounded-lg border border-blue-200 mb-6">
-            <h2 className="text-lg font-bold text-blue-600 mb-6">FILTER DATA PASIEN</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-bold text-blue-600">FILTER DATA PASIEN</h2>
+              <Button
+                onClick={() => setShowFilter(!showFilter)}
+                variant="outline"
+                className="text-xs px-3 py-1 h-auto flex items-center gap-1"
+              >
+                {showFilter ? (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    Sembunyikan
+                  </>
+                ) : (
+                  <>
+                    <ChevronRight className="w-4 h-4" />
+                    Tampilkan
+                  </>
+                )}
+              </Button>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {showFilter && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               {/* Date Range */}
               <div>
                 <label className="block text-sm font-medium mb-2">
@@ -552,7 +582,7 @@ export default function AdminCounterPage() {
                 >
                   <option value="">Semua</option>
                   {paymentMethods.map((pm) => (
-                    <option key={pm.id} value={pm.name}>{pm.name}</option>
+                    <option key={pm.id} value={pm.nama || pm.name}>{pm.nama || pm.name}</option>
                   ))}
                 </select>
               </div>
@@ -567,7 +597,7 @@ export default function AdminCounterPage() {
                 >
                   <option value="">Semua</option>
                   {polis.map((poli) => (
-                    <option key={poli.id} value={poli.name}>{poli.name}</option>
+                    <option key={poli.id} value={poli.nama}>{poli.nama}</option>
                   ))}
                 </select>
               </div>
@@ -582,7 +612,7 @@ export default function AdminCounterPage() {
                 >
                   <option value="">Semua</option>
                   {doctors.map((doctor) => (
-                    <option key={doctor.id} value={doctor.name}>{doctor.name}</option>
+                    <option key={doctor.id} value={doctor.nama}>{doctor.nama}</option>
                   ))}
                 </select>
               </div>
@@ -623,6 +653,8 @@ export default function AdminCounterPage() {
                 </Button>
               </div>
             </div>
+              </>
+            )}
           </div>
 
           {/* Tab and Action Buttons */}
@@ -714,12 +746,12 @@ export default function AdminCounterPage() {
                       <TableCell className="px-2 py-2">
                         {visit.status ? (
                           <span className={`inline-flex items-center gap-1 py-1 px-2 rounded-full text-xs font-medium ${
-                            visit.status === 'pending' || visit.status === 'menunggu' ? 'bg-yellow-100 text-yellow-800' :
+                            visit.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                             visit.status === 'processed' ? 'bg-blue-100 text-blue-800' :
                             (visit.status === 'completed' || visit.status === 'selesai') ? 'bg-green-100 text-green-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {visit.status === 'pending' || visit.status === 'menunggu' ? 'Terdaftar' :
+                            {visit.status === 'pending' ? 'Terdaftar' :
                              visit.status === 'processed' ? 'Ditangani' :
                              (visit.status === 'completed' || visit.status === 'selesai') ? 'Selesai' :
                              visit.status}

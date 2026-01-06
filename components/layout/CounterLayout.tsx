@@ -18,7 +18,6 @@ interface CounterLayoutProps {
 const menuItems = [
     { href: "/counter", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/counter/patients", icon: Users, label: "Pasien" },
-    { href: "/cashier/payment-verification", icon: Receipt, label: "Verifikasi Pembayaran" },
 ];
 
 export function CounterLayout({ children }: CounterLayoutProps) {

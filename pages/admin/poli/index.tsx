@@ -30,33 +30,29 @@ export default function AdminPoliPage() {
     });
 
     useEffect(() => {
-        // Token is in HttpOnly cookie, we only check user data
+        const token = localStorage.getItem("token");
         const user = localStorage.getItem("user");
 
-        if (!user) {
+        if (!token || !user) {
             router.push("/login");
             return;
         }
 
-        try {
-            const userData = JSON.parse(user);
-            if (userData.role !== "superadmin") {
-                router.push("/login");
-                return;
-            }
-
-            fetchPolis();
-        } catch (error) {
-            console.error("Error parsing user data:", error);
+        const userData = JSON.parse(user);
+        if (userData.role !== "superadmin") {
             router.push("/login");
+            return;
         }
+
+        fetchPolis();
     }, [router]);
 
     const fetchPolis = async () => {
         setLoading(true);
         try {
+            const token = localStorage.getItem("token");
             const res = await fetch("/api/master/poli", {
-                credentials: "include",  // Auto-send cookie
+                headers: { Authorization: `Bearer ${token}` },
             });
             const json = await res.json();
             setPolis(json.data || []);
@@ -71,17 +67,17 @@ export default function AdminPoliPage() {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            const token = localStorage.getItem("token");
             const res = await fetch("/api/master/poli", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
                 },
-                credentials: "include",
                 body: JSON.stringify({
                     nama: formData.nama,
                     kode: formData.kode || null,
                     harga_daftar: parseInt(formData.harga_daftar),
-                    kuota_harian: formData.kuota_harian ? parseInt(formData.kuota_harian) : null,
                 }),
             });
 
@@ -89,7 +85,7 @@ export default function AdminPoliPage() {
             if (res.ok) {
                 toast.success("Poli berhasil ditambahkan");
                 setIsCreateModalOpen(false);
-                setFormData({ nama: "", kode: "", harga_daftar: "", kuota_harian: "" });
+                setFormData({ nama: "", kode: "", harga_daftar: "" });
                 fetchPolis();
             } else {
                 toast.error(json.error || "Gagal menambahkan poli");
@@ -103,18 +99,18 @@ export default function AdminPoliPage() {
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            const token = localStorage.getItem("token");
             const res = await fetch("/api/master/poli", {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
                 },
-                credentials: "include",
                 body: JSON.stringify({
                     id: currentPoli.id,
                     nama: formData.nama,
                     kode: formData.kode || null,
                     harga_daftar: parseInt(formData.harga_daftar),
-                    kuota_harian: formData.kuota_harian ? parseInt(formData.kuota_harian) : null,
                 }),
             });
 
@@ -123,7 +119,7 @@ export default function AdminPoliPage() {
                 toast.success("Poli berhasil diupdate");
                 setIsEditModalOpen(false);
                 setCurrentPoli(null);
-                setFormData({ nama: "", kode: "", harga_daftar: "", kuota_harian: "" });
+                setFormData({ nama: "", kode: "", harga_daftar: "" });
                 fetchPolis();
             } else {
                 toast.error(json.error || "Gagal mengupdate poli");
@@ -140,12 +136,13 @@ export default function AdminPoliPage() {
         }
 
         try {
+            const token = localStorage.getItem("token");
             const res = await fetch("/api/master/poli", {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
                 },
-                credentials: "include",
                 body: JSON.stringify({ id: poli.id }),
             });
 
@@ -168,7 +165,6 @@ export default function AdminPoliPage() {
             nama: poli.nama,
             kode: poli.kode || "",
             harga_daftar: poli.harga_daftar?.toString() || "",
-            kuota_harian: poli.kuota_harian?.toString() || "",
         });
         setIsEditModalOpen(true);
     };
@@ -202,7 +198,6 @@ export default function AdminPoliPage() {
                                         <TableHead>Nama Poli</TableHead>
                                         <TableHead>Kode</TableHead>
                                         <TableHead>Harga Daftar</TableHead>
-                                        <TableHead>Kuota Harian</TableHead>
                                         <TableHead className="text-center">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -226,9 +221,6 @@ export default function AdminPoliPage() {
                                                 <TableCell>{poli.kode || "-"}</TableCell>
                                                 <TableCell>
                                                     Rp {poli.harga_daftar?.toLocaleString("id-ID") || 0}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {poli.kuota_harian ? `${poli.kuota_harian} pasien/hari` : "Unlimited"}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex justify-center gap-2">
@@ -307,19 +299,6 @@ export default function AdminPoliPage() {
                                         required
                                     />
                                 </div>
-                                <div>
-                                    <Label htmlFor="kuota">Kuota Harian</Label>
-                                    <Input
-                                        id="kuota"
-                                        type="number"
-                                        value={formData.kuota_harian}
-                                        onChange={(e) => setFormData({ ...formData, kuota_harian: e.target.value })}
-                                        placeholder="Kosongkan untuk unlimited"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Batas maksimal pasien per hari. Kosongkan untuk tidak ada batasan.
-                                    </p>
-                                </div>
                             </div>
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
@@ -369,19 +348,6 @@ export default function AdminPoliPage() {
                                         onChange={(e) => setFormData({ ...formData, harga_daftar: e.target.value })}
                                         required
                                     />
-                                </div>
-                                <div>
-                                    <Label htmlFor="edit-kuota">Kuota Harian</Label>
-                                    <Input
-                                        id="edit-kuota"
-                                        type="number"
-                                        value={formData.kuota_harian}
-                                        onChange={(e) => setFormData({ ...formData, kuota_harian: e.target.value })}
-                                        placeholder="Kosongkan untuk unlimited"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Batas maksimal pasien per hari. Kosongkan untuk tidak ada batasan.
-                                    </p>
                                 </div>
                             </div>
                             <DialogFooter>
