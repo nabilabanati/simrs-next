@@ -39,10 +39,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(404).json({ error: 'Visit not found' })
         }
 
-        // Step 2: Find all visits in the referral chain
         const visitChain: any[] = []
 
-        // If current visit is a referral, trace back to source
         if (currentVisit.is_referral) {
             // Find the referral record pointing to this visit
             const { data: incomingReferral } = await supabase
@@ -57,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 .single()
 
             if (incomingReferral) {
-                // Get source visit details
+                // source visit details
                 const { data: sourceVisit } = await supabase
                     .from('visits')
                     .select(`
@@ -76,31 +74,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
         }
 
-        // Add current visit
         visitChain.push(currentVisit)
 
-        // Step 3: Calculate fees for each visit
         const visitDetails = await Promise.all(
             visitChain.map(async (visit) => {
                 console.log(`Processing visit ${visit.id}, visit.harga: ${visit.harga}`)
 
-                // Get poli fee - if visit.harga is 0 (referral visit), fetch from poli table
-                let poliFee = visit.harga || 0
-                if (poliFee === 0) {
-                    // Fetch actual poli fee from poli table
-                    const { data: poliData } = await supabase
-                        .from('poli')
-                        .select('harga_daftar')
-                        .eq('nama', visit.poli?.nama)
-                        .single()
+                // ALWAYS fetch poli fee from poli table
+                // visits.harga contains registration fee (50k), NOT poli fee
+                let poliFee = 0
+                const { data: poliData } = await supabase
+                    .from('poli')
+                    .select('harga_daftar')
+                    .eq('nama', visit.poli?.nama)
+                    .single()
 
-                    if (poliData?.harga_daftar) {
-                        poliFee = poliData.harga_daftar
-                        console.log(`Visit ${visit.id} is referral, using poli fee from poli table: ${poliFee}`)
-                    }
+                if (poliData?.harga_daftar) {
+                    poliFee = poliData.harga_daftar
+                    console.log(`Visit ${visit.id} poli fee from poli table: ${poliFee}`)
+                } else {
+                    console.warn(`Visit ${visit.id} - Could not find poli fee for ${visit.poli?.nama}`)
                 }
 
-                // Get medicine cost using RPC function (bypasses RLS)
                 const { data: medicineData, error: medicineError } = await supabase
                     .rpc('get_visit_medicine_cost', { p_visit_id: visit.id })
                     .single()
@@ -125,17 +120,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             })
         )
 
-        // Step 4: Calculate total
         let total = visitDetails.reduce((sum, visit) => sum + visit.subtotal, 0)
 
-        // Add registration fee (50,000) if penjamin is 'Umum'
         const penjaminName = currentVisit.penjamin?.nama || ''
         const registrationFee = penjaminName.toLowerCase() === 'umum' ? 50000 : 0
         total += registrationFee
 
         console.log(`Penjamin: ${penjaminName}, Registration Fee: ${registrationFee}, Total: ${total}`)
 
-        // Step 5: Get patient info
         const { data: patient } = await supabase
             .from('patients')
             .select('nrm, nama, tanggal_lahir, jenis_kelamin')

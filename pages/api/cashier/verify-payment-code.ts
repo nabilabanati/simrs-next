@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Check if code is already used
         if (paymentCode.is_used) {
             return res.status(400).json({
-                error: 'Payment code has already been used',
+                error: 'Kode pembayaran sudah pernah digunakan',
                 used_at: paymentCode.used_at
             })
         }
