@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/api/withAuth";
 import { withRole, ROLES } from "@/lib/api/role";
 import { supabaseServer } from "@/lib/supabase/server";
 import { ok, fail } from "@/lib/api/respond";
+import bcrypt from "bcryptjs";
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === "GET") {
@@ -85,8 +86,8 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
         return fail(res, "Username already exists", 400);
     }
 
-    // PROTOTYPE: No password hashing (plain text storage)
-    const hashedPassword = password;
+    // Hash password using bcrypt
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     try {
         // 1. Insert into users table

@@ -35,7 +35,7 @@ export default function DoctorNavbar({ userName }: DoctorNavbarProps) {
                 <div className="flex justify-between items-center h-16">
                     {/* Logo/Title */}
                     <div className="flex items-center">
-                        <h1 className="text-xl font-bold text-blue-600">SIMRS</h1>
+                        <h1 className="text-xl font-bold text-blue-600">Sistem Informasi Manajemen Rumah Sakit </h1>
                         <span className="ml-3 text-gray-400">|</span>
                         <span className="ml-3 text-gray-700">Portal Dokter</span>
                     </div>

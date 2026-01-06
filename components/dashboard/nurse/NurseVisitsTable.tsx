@@ -84,8 +84,8 @@ export default function NurseVisitsTable({
                                 {visits.map((visit, index) => (
                                     <tr key={visit.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{index + 1}</td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{visit.no_reg.split('-')[0] || '-'}</td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{visit.no_reg}</td>
+                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{visit.no_reg?.split('-')[0] || '-'}</td>
+                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{visit.no_reg || '-'}</td>
                                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
                                             {(() => {
                                                 const date = new Date(visit.created_at);

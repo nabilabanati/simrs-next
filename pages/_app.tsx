@@ -4,6 +4,8 @@ import { useRouter } from "next/router";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Toaster } from "sonner";
+import { Toaster as HotToaster } from "react-hot-toast";
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -69,28 +71,62 @@ export default function App({ Component, pageProps }: AppProps) {
   const noLayoutPrefixes = ["/login", "/register", "/loket-antrian", "/queue", "/counter", "/unauthorized"];
   const doctorRoutes = router.pathname.startsWith("/doctor");
   const nurseRoutes = router.pathname.startsWith("/nurse");
+  const cashierRoutes = router.pathname.startsWith("/cashier");
 
-  const shouldUseLayout = !noLayoutPrefixes.some((prefix) => router.pathname.startsWith(prefix)) && !doctorRoutes && !nurseRoutes;
+  const shouldUseLayout = !noLayoutPrefixes.some((prefix) => router.pathname.startsWith(prefix)) && !doctorRoutes && !nurseRoutes && !cashierRoutes;
 
   // Doctor pages without navbar (only sidebar from DoctorLayout)
   if (doctorRoutes) {
-    return <Component {...pageProps} />;
+    return (
+      <>
+        <Component {...pageProps} />
+        <Toaster position="top-right" richColors />
+        <HotToaster />
+      </>
+    );
   }
 
   // Nurse pages without navbar (only sidebar from NurseLayout)
   if (nurseRoutes) {
-    return <Component {...pageProps} />;
+    return (
+      <>
+        <Component {...pageProps} />
+        <Toaster position="top-right" richColors />
+        <HotToaster />
+      </>
+    );
+  }
+
+  // Cashier pages without navbar (only sidebar from CashierLayout)
+  if (cashierRoutes) {
+    return (
+      <>
+        <Component {...pageProps} />
+        <Toaster position="top-right" richColors />
+        <HotToaster />
+      </>
+    );
   }
 
   // Other pages with sidebar
   if (shouldUseLayout) {
     return (
-      <Layout>
-        <Component {...pageProps} />
-      </Layout>
+      <>
+        <Layout>
+          <Component {...pageProps} />
+        </Layout>
+        <Toaster position="top-right" richColors />
+        <HotToaster />
+      </>
     );
   }
 
   // Public pages (login, register, queue display)
-  return <Component {...pageProps} />;
+  return (
+    <>
+      <Component {...pageProps} />
+      <Toaster position="top-right" richColors />
+      <HotToaster />
+    </>
+  );
 }

@@ -1,37 +1,34 @@
-import { useRouter } from "next/router"
-import { Button } from "@/components/ui/button"
-import { Home, ArrowLeft } from "lucide-react"
+import Link from 'next/link';
+import { useRouter } from 'next/router';
 
 export default function Custom404() {
-    const router = useRouter()
+    const router = useRouter();
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-            <div className="text-center max-w-md">
-                <h1 className="text-9xl font-bold text-purple-600">404</h1>
-                <h2 className="text-3xl font-semibold text-gray-900 mt-4 mb-2">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+                <h1 className="text-9xl font-bold text-blue-600">404</h1>
+                <h2 className="text-3xl font-semibold text-gray-800 mt-4">
                     Halaman Tidak Ditemukan
                 </h2>
-                <p className="text-gray-600 mb-8">
-                    Maaf, halaman yang Anda cari tidak ditemukan atau telah dipindahkan.
+                <p className="text-gray-600 mt-2 mb-8">
+                    Maaf, halaman yang Anda cari tidak tersedia.
                 </p>
-                <div className="flex gap-3 justify-center">
-                    <Button
-                        variant="outline"
+                <div className="space-x-4">
+                    <button
                         onClick={() => router.back()}
+                        className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                     >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
                         Kembali
-                    </Button>
-                    <Button
-                        onClick={() => router.push("/")}
-                        className="bg-purple-600 hover:bg-purple-700"
+                    </button>
+                    <Link
+                        href="/"
+                        className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                        <Home className="w-4 h-4 mr-2" />
-                        Ke Halaman Utama
-                    </Button>
+                        Ke Beranda
+                    </Link>
                 </div>
             </div>
         </div>
-    )
+    );
 }

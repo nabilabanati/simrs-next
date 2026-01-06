@@ -56,7 +56,7 @@ export default function PaymentCodeModal({ open, onClose, visitId }: PaymentCode
                 .eq('visit_id', visitId)
                 .order('created_at', { ascending: false })
                 .limit(1)
-                .single()
+                .maybeSingle()
 
             // If code exists (used or not), show it
             if (existingCode) {
@@ -206,8 +206,13 @@ export default function PaymentCodeModal({ open, onClose, visitId }: PaymentCode
                         <>
                             {/* Hospital Header - Compact */}
                             <div className="text-center mb-4 border-b-2 border-gray-800 pb-3">
-                                <h1 className="text-xl font-bold text-gray-800">KLINIK PRATAMA</h1>
-                                <p className="text-xs text-gray-600">Jl. Contoh No. 123, Kota | Telp: (021) 1234-5678</p>
+                                <h1 className="text-2xl font-bold text-gray-800">RUMAH SAKIT</h1>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Jl. Contoh No. 123, Kota, Provinsi
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                    Telp: (021) 1234-5678 | Email: info@rsayeye.com
+                                </p>
                             </div>
 
                             {/* Title */}
