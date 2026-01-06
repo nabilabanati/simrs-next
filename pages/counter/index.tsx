@@ -13,8 +13,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Users, Clock, Download, Activity, LayoutGrid, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { fetchPoli, fetchAllDoctors, fetchPaymentMethods } from '@/lib/api-client';
-import type { Poli, Doctor, PaymentMethod } from '@/lib/api-client';
+import { fetchPoli, fetchDoctors, fetchPenjamin } from '@/lib/api-client/index';
+import type { Poli, Doctor } from '@/lib/types';
+
+// Type for penjamin data (payment methods)
+interface PaymentMethod {
+  id: string;
+  name?: string;
+  nama?: string;
+  tipe?: string;
+}
 
 export default function AdminCounterPage() {
   const router = useRouter();
@@ -106,8 +114,8 @@ export default function AdminCounterPage() {
       try {
         const [polisData, doctorsData, paymentsData] = await Promise.all([
           fetchPoli(),
-          fetchAllDoctors(),
-          fetchPaymentMethods(),
+          fetchDoctors(),
+          fetchPenjamin(),
         ]);
         setPolis(polisData);
         setDoctors(doctorsData);
@@ -574,7 +582,7 @@ export default function AdminCounterPage() {
                 >
                   <option value="">Semua</option>
                   {paymentMethods.map((pm) => (
-                    <option key={pm.id} value={pm.name}>{pm.name}</option>
+                    <option key={pm.id} value={pm.nama || pm.name}>{pm.nama || pm.name}</option>
                   ))}
                 </select>
               </div>
@@ -589,7 +597,7 @@ export default function AdminCounterPage() {
                 >
                   <option value="">Semua</option>
                   {polis.map((poli) => (
-                    <option key={poli.id} value={poli.name}>{poli.name}</option>
+                    <option key={poli.id} value={poli.nama}>{poli.nama}</option>
                   ))}
                 </select>
               </div>
@@ -604,7 +612,7 @@ export default function AdminCounterPage() {
                 >
                   <option value="">Semua</option>
                   {doctors.map((doctor) => (
-                    <option key={doctor.id} value={doctor.name}>{doctor.name}</option>
+                    <option key={doctor.id} value={doctor.nama}>{doctor.nama}</option>
                   ))}
                 </select>
               </div>
