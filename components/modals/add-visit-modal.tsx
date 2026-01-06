@@ -51,68 +51,70 @@ export default function AddVisitModal({ patient, onClose, onSave }: AddVisitModa
 
   // Load data on mount
   useEffect(() => {
-    console.log('[Modal] Received patient data:', patient); // Debug log
+    console.log('[Modal] Received patient data:', patient);
     const loadData = async () => {
       try {
         setLoading(true);
-        console.log('[Modal] Loading data...');
-        const [polisData, paymentsData] = await Promise.all([
+        console.time('⏱️ Total Modal Loading Time');
+        console.time('⏱️ Fetch All Data');
+        
+        // Run ALL queries in parallel for better performance
+        const [polisData, paymentsData, visitCountResult, penjaminResult] = await Promise.all([
           fetchPoli(),
           fetchPenjamin(),
+          // Count previous visits
+          patient.id 
+            ? supabase.from('visits').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id)
+            : Promise.resolve({ count: 0, error: null }),
+          // Fetch patient's default penjamin
+          patient.id
+            ? supabase.from('patient_penjamin').select('penjamin_id, penjamin(nama)').eq('patient_id', patient.id).single()
+            : Promise.resolve({ data: null, error: null })
         ]);
+        
+        console.timeEnd('⏱️ Fetch All Data');
+        console.log('[Modal] ✅ Polis loaded:', polisData?.length, 'items');
+        console.log('[Modal] ✅ Payment methods loaded:', paymentsData?.length, 'items');
         
         setPolis(polisData);
         setPaymentMethods(paymentsData);
         
-        // Fetch quota data
-        fetchQuotaData();
-        
-        // Count previous visits
-        if (patient.id) {
-            const { count, error } = await supabase
-                .from('visits')
-                .select('*', { count: 'exact', head: true })
-                .eq('patient_id', patient.id);
-            
-            if (!error && count !== null) {
-                setVisitCount(count + 1);
-            }
+        // Set visit count
+        if (visitCountResult.count !== null && !visitCountResult.error) {
+          setVisitCount(visitCountResult.count + 1);
         }
-
-        // Fetch patient's default penjamin from patient_penjamin table
-        if (patient.id) {
-          const { data: penjaminData, error: penjaminError } = await supabase
-            .from('patient_penjamin')
-            .select('penjamin_id, penjamin(nama)')
-            .eq('patient_id', patient.id)
-            .single();
-          
-          if (!penjaminError && penjaminData) {
-            console.log('[Modal] Patient penjamin:', penjaminData);
-            // Find matching payment method
-            const matchedPayment = paymentsData.find((p: PaymentMethod) => 
-              p.id === penjaminData.penjamin_id ||
-              (p.nama || p.name)?.toLowerCase() === (penjaminData.penjamin as any)?.nama?.toLowerCase()
-            );
-            if (matchedPayment) {
-              setSelectedPayment(matchedPayment);
-              console.log('[Modal] Set default payment from penjamin:', matchedPayment);
-            }
-          } else if (patient.payment) {
-            // Fallback to patient.payment field if exists
-            const matchedPayment = paymentsData.find((p: PaymentMethod) => 
-              (p.nama || p.name)?.toLowerCase().includes(patient.payment.toLowerCase()) ||
-              patient.payment.toLowerCase().includes((p.nama || p.name)?.toLowerCase() || '')
-            );
-            if (matchedPayment) {
-              setSelectedPayment(matchedPayment);
-              console.log('[Modal] Set default payment from patient.payment:', matchedPayment);
-            }
+        
+        // Set default payment method
+        if (!penjaminResult.error && penjaminResult.data) {
+          console.log('[Modal] Patient penjamin:', penjaminResult.data);
+          const matchedPayment = paymentsData.find((p: PaymentMethod) => 
+            p.id === penjaminResult.data.penjamin_id ||
+            (p.nama || p.name)?.toLowerCase() === (penjaminResult.data.penjamin as any)?.nama?.toLowerCase()
+          );
+          if (matchedPayment) {
+            setSelectedPayment(matchedPayment);
+            console.log('[Modal] Set default payment from penjamin:', matchedPayment);
+          }
+        } else if (patient.payment) {
+          // Fallback to patient.payment field if exists
+          const matchedPayment = paymentsData.find((p: PaymentMethod) => 
+            (p.nama || p.name)?.toLowerCase().includes(patient.payment.toLowerCase()) ||
+            patient.payment.toLowerCase().includes((p.nama || p.name)?.toLowerCase() || '')
+          );
+          if (matchedPayment) {
+            setSelectedPayment(matchedPayment);
+            console.log('[Modal] Set default payment from patient.payment:', matchedPayment);
           }
         }
+        
+        // Fetch quota data (non-blocking)
+        fetchQuotaData();
+        
+        console.timeEnd('⏱️ Total Modal Loading Time');
 
       } catch (error) {
-        console.error('[Modal] Error loading data:', error);
+        console.error('[Modal] ❌ Error loading data:', error);
+        console.timeEnd('⏱️ Total Modal Loading Time');
       } finally {
         setLoading(false);
       }
@@ -153,10 +155,10 @@ export default function AddVisitModal({ patient, onClose, onSave }: AddVisitModa
     }
   }, [selectedPoli]);
 
-  // Auto-generate harga when payment is UMUM - Flat rate 90,000 IDR
+  // Auto-generate harga when payment is UMUM - Flat rate 50,000 IDR
   useEffect(() => {
     if ((selectedPayment?.nama || selectedPayment?.name)?.toUpperCase().includes('UMUM')) {
-      setHarga(90000); // Flat rate for all Umum patients
+      setHarga(50000); // Flat rate for all Umum patients
     } else {
       setHarga(0);
     }
@@ -264,7 +266,7 @@ export default function AddVisitModal({ patient, onClose, onSave }: AddVisitModa
                   </label>
                   <input
                     type="text"
-                    value={patient.name || '-'}
+                    value={patient.nama || patient.name || '-'}
                     readOnly
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 cursor-not-allowed"
                   />
@@ -363,14 +365,22 @@ export default function AddVisitModal({ patient, onClose, onSave }: AddVisitModa
                   <select
                     value={selectedPayment?.id || ''}
                     onChange={(e) => handlePaymentChange(e.target.value)}
+                    disabled={loading}
                     className={`w-full py-2 px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       errors.payment ? 'border-red-500 ring-red-200' : 'border-gray-200'
-                    }`}
+                    } ${loading ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   >
-                    <option value="">Pilih cara bayar</option>
-                    {paymentMethods.map((pm) => (
-                      <option key={pm.id} value={pm.id}>{pm.name}</option>
-                    ))}
+                    <option value="">{loading ? 'Loading...' : 'Pilih cara bayar'}</option>
+                    {paymentMethods
+                      .filter((pm) => {
+                        const name = (pm.nama || pm.name || '').toUpperCase().trim();
+                        // Exact match only untuk BPJS, UMUM, ASURANSI
+                        return name === 'BPJS' || name === 'UMUM' || name === 'ASURANSI';
+                      })
+                      .map((pm) => (
+                        <option key={pm.id} value={pm.id}>{pm.nama || pm.name}</option>
+                      ))
+                    }
                   </select>
                   {errors.payment && <p className="text-red-500 text-xs mt-1">Harap pilih cara bayar!</p>}
                 </div>
@@ -386,9 +396,6 @@ export default function AddVisitModal({ patient, onClose, onSave }: AddVisitModa
                     readOnly
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 cursor-not-allowed font-semibold text-blue-600"
                   />
-                  {(selectedPayment?.nama || selectedPayment?.name)?.toUpperCase().includes('UMUM') && harga > 0 && (
-                    <p className="text-blue-600 text-xs mt-1">✓ Harga otomatis dari tarif poli</p>
-                  )}
                 </div>
               </div>
             </div>

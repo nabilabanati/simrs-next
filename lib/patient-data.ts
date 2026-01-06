@@ -3,6 +3,7 @@ export interface Patient {
   date: string;
   nrm: string;
   name: string;
+  nama?: string; // Support database field
   nik: string;
   gender: 'L' | 'P';
   clinic: string;

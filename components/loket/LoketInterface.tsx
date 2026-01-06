@@ -241,6 +241,39 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
 
   // Call next patient
   const handleCallNext = async () => {
+    console.time('⏱️ Call Next Patient');
+    
+    // Optimistic UI Update - Get next waiting ticket from local state
+    if (!waitingQueue || waitingQueue.length === 0) {
+      toast.error(`Tidak ada antrian yang menunggu di Loket ${loketId}`);
+      return;
+    }
+    
+    const nextInQueue = waitingQueue[0];
+    const optimisticTicket = {
+      id: nextInQueue.id,
+      queue_number: nextInQueue.queue_number,
+      loket_id: loketId,
+      status: 'called' as const,
+      called_at: new Date().toISOString(),
+      created_at: nextInQueue.created_at
+    };
+    
+    // Update UI IMMEDIATELY (optimistic)
+    const previousTicket = currentTicket;
+    setCurrentTicket(optimisticTicket);
+    setWaitingQueue(prev => prev.slice(1)); // Remove first item
+    setWaitingCount(prev => Math.max(0, prev - 1));
+    
+    // Show success immediately
+    toast.success(`Antrian ${optimisticTicket.queue_number} dipanggil`);
+    announceQueue(optimisticTicket.queue_number, loketId);
+    broadcastQueueCall(optimisticTicket);
+    
+    console.timeEnd('⏱️ Call Next Patient');
+    console.log('✅ UI updated optimistically (instant!)');
+    
+    // Call API in background to sync with database
     setLoading(true);
     try {
       const response = await fetch('/api/counter/call-next', {
@@ -252,6 +285,12 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
       const data = await response.json();
 
       if (!response.ok) {
+        // Rollback optimistic update on error
+        console.error('❌ API call failed, rolling back...');
+        setCurrentTicket(previousTicket);
+        setWaitingQueue(prev => [nextInQueue, ...prev]);
+        setWaitingCount(prev => prev + 1);
+        
         if (response.status === 404) {
           toast.error(`Tidak ada antrian yang menunggu di Loket ${loketId}`);
         } else {
@@ -259,14 +298,20 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
         }
         return;
       }
-
+      
+      // Sync with actual data from server
+      console.log('✅ API call successful, syncing data...');
       setCurrentTicket(data.ticket);
-      announceQueue(data.ticket.queue_number, loketId);
-      broadcastQueueCall(data.ticket);
-      await fetchQueue();
-      toast.success(`Antrian ${data.ticket.queue_number} dipanggil`);
+      
+      // Fetch queue in background to ensure consistency
+      fetchQueue();
+      
     } catch (error) {
-      console.error('Error calling next:', error);
+      // Rollback on error
+      console.error('❌ Error calling next, rolling back:', error);
+      setCurrentTicket(previousTicket);
+      setWaitingQueue(prev => [nextInQueue, ...prev]);
+      setWaitingCount(prev => prev + 1);
       toast.error('Terjadi kesalahan saat memanggil antrian');
     } finally {
       setLoading(false);
@@ -334,9 +379,11 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
   };
 
   const handlePatientSelected = (patient: any) => {
+    console.log('[LoketInterface] Patient selected:', patient);
     setSelectedPatient(patient);
     setShowSearchModal(false);
     setShowVisitModal(true);
+    console.log('[LoketInterface] showVisitModal set to true');
   };
 
   const handleCreateNewPatient = () => {
@@ -413,6 +460,25 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
       console.error('Error saving visit:', error);
       toast.error('Gagal menyimpan registrasi: ' + error.message);
     }
+  };
+
+  const handlePrintTicket = (visit: any) => {
+    // Prepare data for ticket modal
+    const ticketData = {
+      queueNumber: visit.queue_tickets?.queue_number?.toString() || '-',
+      registrationNo: visit.no_reg || 'N/A',
+      nrm: visit.patient?.nrm || '-',
+      patientName: visit.patient?.nama || visit.patient?.name || '-',
+      poliName: visit.poli?.nama || '-',
+      doctorName: visit.doctor?.nama || '-',
+      paymentMethod: visit.penjamin?.nama || 'UMUM',
+      price: visit.harga || 0,
+      bpjsNumber: visit.patient?.bpjs_number || '',
+      insuranceNumber: visit.patient?.insurance_number || ''
+    };
+    
+    setSavedVisitData(ticketData);
+    setShowTicketModal(true);
   };
 
   const timeString = currentTime?.toLocaleTimeString('id-ID', {
@@ -791,6 +857,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
                           size="sm"
                           variant="outline"
                           className="text-xs px-2 py-1"
+                          onClick={() => handlePrintTicket(visit)}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -816,7 +883,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
 
 
 
-      {selectedPatient && (
+      {showVisitModal && selectedPatient && (
         <AddVisitModal
           patient={selectedPatient}
           onClose={() => {
