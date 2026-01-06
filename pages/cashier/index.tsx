@@ -23,7 +23,7 @@ interface VisitDetail {
         id: string
         no_reg: string
         created_at: string
-        poli: { nama: string }
+        poli: { nama: string; harga_daftar: number }
         doctor: { users: { nama: string } }
     }
     patient: {
@@ -31,6 +31,13 @@ interface VisitDetail {
         nama: string
         tanggal_lahir: string
         jenis_kelamin: string
+    }
+    invoice_items?: any[]
+    prescription?: {
+        prescription_items: Array<{
+            medicines: { nama: string; harga_satuan: number; satuan: string }
+            quantity: number
+        }>
     }
 }
 
@@ -43,6 +50,7 @@ export default function CashierDashboard() {
     const [verifiedVisitId, setVerifiedVisitId] = useState<string | null>(null)
     const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
     const [userName, setUserName] = useState('')
+    const [accumulatedInvoice, setAccumulatedInvoice] = useState<any>(null)
 
     // Check if user is cashier
     useEffect(() => {
@@ -122,8 +130,24 @@ export default function CashierDashboard() {
                         poli: data.visit.poli,
                         doctor: data.visit.doctors
                     },
-                    patient: data.visit.patients  // Extract patient from visit
+                    patient: data.visit.patients,  // Extract patient from visit
+                    invoice_items: data.invoice_items || [],
+                    prescription: data.prescription
                 })
+
+                // Fetch accumulated invoice for accurate cost calculation
+                try {
+                    const invoiceRes = await fetch(`/api/doctor/get-accumulated-invoice?visit_id=${data.visit.id}`, {
+                        credentials: 'include'
+                    })
+                    const invoiceData = await invoiceRes.json()
+                    if (invoiceRes.ok && invoiceData.success) {
+                        setAccumulatedInvoice(invoiceData.data)
+                    }
+                } catch (err) {
+                    console.error('Error fetching accumulated invoice:', err)
+                }
+
                 toast.success('Kode pembayaran valid! Silakan konfirmasi detail kunjungan.')
             } else {
                 toast.error(data.error || 'Kode pembayaran tidak valid')
@@ -180,6 +204,7 @@ export default function CashierDashboard() {
         setVisitDetail(null)
         setPaymentCode('')
         setCashierPassword('')
+        setAccumulatedInvoice(null)
     }
 
     const formatDate = (dateString: string) => {
@@ -362,6 +387,56 @@ export default function CashierDashboard() {
                                                     <p className="font-semibold text-blue-600">✓ Valid</p>
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        {/* Cost Breakdown */}
+                                        <div className="col-span-2 bg-green-50 p-4 rounded-lg border-l-4 border-green-400">
+                                            <h3 className="font-semibold text-green-900 mb-3">Rincian Biaya</h3>
+                                            {accumulatedInvoice ? (
+                                                <div className="space-y-2 text-sm">
+                                                    {/* Visit Details */}
+                                                    {accumulatedInvoice.visits.map((visit: any, idx: number) => (
+                                                        <div key={idx} className="space-y-1">
+                                                            <div className="flex justify-between">
+                                                                <span className="text-gray-700 font-medium">
+                                                                    {visit.poli_name} {idx > 0 && '(Rujukan)'}
+                                                                </span>
+                                                                <span className="font-semibold text-gray-900">
+                                                                    Rp {visit.poli_fee.toLocaleString('id-ID')}
+                                                                </span>
+                                                            </div>
+                                                            {visit.medicine_cost > 0 && (
+                                                                <div className="flex justify-between pl-4">
+                                                                    <span className="text-gray-600">Obat</span>
+                                                                    <span className="text-gray-900">
+                                                                        Rp {visit.medicine_cost.toLocaleString('id-ID')}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+
+                                                    {/* Registration Fee */}
+                                                    {accumulatedInvoice.registration_fee > 0 && (
+                                                        <div className="flex justify-between border-t border-green-200 pt-2">
+                                                            <span className="text-gray-700">Biaya Administrasi</span>
+                                                            <span className="font-semibold text-gray-900">
+                                                                Rp {accumulatedInvoice.registration_fee.toLocaleString('id-ID')}
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Total */}
+                                                    <div className="border-t-2 border-green-300 pt-2 mt-2 flex justify-between">
+                                                        <span className="font-bold text-green-900">Total Pembayaran</span>
+                                                        <span className="font-bold text-green-900 text-lg">
+                                                            Rp {accumulatedInvoice.total.toLocaleString('id-ID')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-gray-500 text-sm">Memuat rincian biaya...</p>
+                                            )}
                                         </div>
                                     </div>
 

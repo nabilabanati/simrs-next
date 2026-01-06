@@ -161,6 +161,16 @@ export default function SOAPFormPage() {
                     setTtvData(null)
                 } else {
                     console.error("TTV API Error:", ttvJson)
+
+                    // Check if session was terminated
+                    if (ttvJson.error && ttvJson.error.toLowerCase().includes('session has been terminated')) {
+                        console.warn('🔒 Session terminated - redirecting to login')
+                        localStorage.removeItem('user')
+                        localStorage.removeItem('token')
+                        router.push('/login?reason=session_invalidated')
+                        return
+                    }
+
                     toast.warning("Gagal memuat data TTV")
                 }
             } catch (error) {
@@ -288,9 +298,19 @@ export default function SOAPFormPage() {
                     )
                 }
             } else {
+                // Check if session was terminated
+                if (medJson.error && medJson.error.toLowerCase().includes('session has been terminated')) {
+                    console.warn('🔒 Session terminated - redirecting to login')
+                    localStorage.removeItem('user')
+                    localStorage.removeItem('token')
+                    router.push('/login?reason=session_invalidated')
+                    return
+                }
+
                 console.warn("No medicine data returned")
                 toast.warning("Tidak ada data obat tersedia. Silakan hubungi admin untuk menambahkan data obat.")
             }
+
 
             // 6. Get poli list for referral
             const { data: poliData, error: poliError } = await supabase
@@ -947,7 +967,7 @@ export default function SOAPFormPage() {
                                     <Label htmlFor="plan">P (Plan) - Rencana Tindakan</Label>
 
                                     {/* Show disposition info box if SOAP already saved with disposition */}
-                                    {existingSOAP && disposition ? (
+                                    {isVisitCompleted && disposition ? (
                                         <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                             <div className="flex items-start gap-2">
                                                 <div className="flex-shrink-0 mt-0.5">

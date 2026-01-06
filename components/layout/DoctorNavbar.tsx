@@ -12,7 +12,10 @@ export default function DoctorNavbar({ userName }: DoctorNavbarProps) {
     const handleLogout = async () => {
         try {
             // Call logout API
-            await fetch("/api/auth/logout", { method: "POST" })
+            await fetch("/api/auth/logout", {
+                method: "POST",
+                credentials: "include"
+            })
 
             // Clear localStorage
             localStorage.removeItem("user")

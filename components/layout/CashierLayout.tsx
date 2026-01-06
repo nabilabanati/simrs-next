@@ -19,8 +19,14 @@ export default function CashierLayout({ children }: CashierLayoutProps) {
         }
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
         router.push('/login');
     };
 
@@ -75,7 +81,7 @@ export default function CashierLayout({ children }: CashierLayoutProps) {
                             <User className="w-4 h-4 text-white" />
                         </div>
                         <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900 break-words">{userName}</p>
+                            <p className="text-sm font-medium text-gray-900 break-words" suppressHydrationWarning>{userName}</p>
                             <p className="text-xs text-gray-500">Kasir</p>
                         </div>
                     </div>

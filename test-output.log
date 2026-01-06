@@ -1,0 +1,18 @@
+🔍 Testing Single Session Enforcement with loket1
+
+📱 Device A: Logging in as loket1...
+✅ Device A Login: { status: 200, sessionId: 'Present', hasCookie: true }
+
+📱 Device B: Logging in as loket1 (same user)...
+✅ Device B Login: { status: 200, sessionId: 'Present', hasCookie: true }
+
+📱 Device A: Trying to access /counter/loket-1 page...
+🔍 Device A Access Result: { status: 200, redirected: false, location: null }
+
+❌ FAIL! Device A can still access the page (single session not working)
+
+============================================================
+Summary:
+- Device A token: Present
+- Device B token: Present
+- Single session working: NO ❌

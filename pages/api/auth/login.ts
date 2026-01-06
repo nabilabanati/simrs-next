@@ -70,17 +70,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return fail(res, "Account is inactive. Please contact administrator.", 403);
   }
 
-  // CRITICAL FIX: Record attempt BEFORE password check
-  // This prevents bypass by entering correct password after failed attempts
-  rateLimiter.recordFailure(clientIP, username);
-
-  // Check AGAIN after recording - if now exceeded, block immediately
-  const recheckAfterRecord = rateLimiter.check(clientIP, username);
-  if (!recheckAfterRecord.allowed) {
-    console.log(`🚫 Rate limit exceeded after recording attempt for ${username} from ${clientIP}`);
-    return fail(res, recheckAfterRecord.message || "Too many login attempts", 429);
-  }
-
   // Secure password comparison using bcrypt
   console.log("🔐 Verifying password with bcrypt...");
   const isPasswordValid = await bcrypt.compare(password, user.password);

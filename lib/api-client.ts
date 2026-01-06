@@ -128,7 +128,21 @@ async function handleErrorResponse(response: Response): Promise<never> {
     try {
       const errorData = await response.json();
       errorMessage = errorData.error || errorData.message || errorMessage;
+
+      // === DETECT SESSION TERMINATION ===
+      // Check if error message indicates session was terminated by another login
+      if (errorMessage.toLowerCase().includes('session has been terminated') ||
+        errorMessage.toLowerCase().includes('session terminated')) {
+        console.warn('🔒 Session terminated - user logged in from another device');
+        handleSessionExpired('session_invalidated');
+        errorCode = 'SESSION_TERMINATED';
+        throw new ApiClientError(errorMessage, response.status, errorCode);
+      }
     } catch (e) {
+      // If it's our ApiClientError, re-throw it
+      if (e instanceof ApiClientError) {
+        throw e;
+      }
       // Failed to parse error JSON, use default message
     }
   }

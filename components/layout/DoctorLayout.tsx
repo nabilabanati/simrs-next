@@ -23,9 +23,26 @@ export default function DoctorLayout({ children }: DoctorLayoutProps) {
         }
     }, []);
 
-    const handleLogout = () => {
-        localStorage.removeItem('user');
-        router.push('/login');
+    const handleLogout = async () => {
+        try {
+            // Call logout API to invalidate session
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                credentials: 'include',
+            });
+
+            // Clear local storage
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+
+            // Redirect to login
+            router.push('/login');
+        } catch (error) {
+            console.error('Logout error:', error);
+            // Force redirect even if API fails
+            localStorage.clear();
+            router.push('/login');
+        }
     };
 
     const menuItems = [

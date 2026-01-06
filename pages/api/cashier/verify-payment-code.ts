@@ -46,9 +46,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(403).json({ error: 'Cashier account is inactive' })
         }
 
-        // Verify password (plain text for now - TODO: implement bcrypt hashing in database)
-        // const passwordMatch = await bcrypt.compare(cashier_password, cashier.password)
-        const passwordMatch = cashier_password === cashier.password
+        // Verify password using bcrypt
+        const passwordMatch = await bcrypt.compare(cashier_password, cashier.password)
         if (!passwordMatch) {
             return res.status(401).json({ error: 'Invalid password' })
         }
