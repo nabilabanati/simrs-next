@@ -30,8 +30,17 @@ export default async function handler(
 
     const loketIdNum = parseInt(loket_id as string);
 
+    // Get today's date range (start and end of day in local timezone)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStart = today.toISOString();
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStart = tomorrow.toISOString();
+
     // ============================================
-    // Step 1: Get current called ticket
+    // Step 1: Get current called ticket (today only)
     // ============================================
     
     const { data: currentTicket, error: currentError } = await supabaseServer
@@ -39,6 +48,8 @@ export default async function handler(
       .select('*')
       .eq('loket_id', loketIdNum)
       .eq('status', 'called')
+      .gte('created_at', todayStart)
+      .lt('created_at', tomorrowStart)
       .order('called_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -49,7 +60,7 @@ export default async function handler(
     }
 
     // ============================================
-    // Step 2: Get waiting queue (FIFO order)
+    // Step 2: Get waiting queue (FIFO order, today only)
     // ============================================
     
     const { data: waitingQueue, error: waitingError } = await supabaseServer
@@ -57,6 +68,8 @@ export default async function handler(
       .select('*')
       .eq('loket_id', loketIdNum)
       .eq('status', 'waiting')
+      .gte('created_at', todayStart)
+      .lt('created_at', tomorrowStart)
       .order('created_at', { ascending: true });
 
     if (waitingError) {
@@ -65,14 +78,16 @@ export default async function handler(
     }
 
     // ============================================
-    // Step 3: Count waiting tickets
+    // Step 3: Count waiting tickets (today only)
     // ============================================
     
     const { count: waitingCount, error: countError } = await supabaseServer
       .from('queue_tickets')
       .select('*', { count: 'exact', head: true })
       .eq('loket_id', loketIdNum)
-      .eq('status', 'waiting');
+      .eq('status', 'waiting')
+      .gte('created_at', todayStart)
+      .lt('created_at', tomorrowStart);
 
     if (countError) {
       console.error('Error counting waiting tickets:', countError);

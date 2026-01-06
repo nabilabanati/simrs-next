@@ -41,12 +41,23 @@ export default function QueueInfoDisplay() {
   // Fetch latest queue data from database
   const fetchLatestQueueData = async () => {
     try {
-      // Get the most recent called ticket for each loket from queue_tickets table
+      // Get today's date range (start and end of day in local timezone)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStart = today.toISOString();
+      
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStart = tomorrow.toISOString();
+
+      // Get the most recent called ticket for each loket from queue_tickets table (today only)
       const { data: calledTickets, error } = await supabase
         .from('queue_tickets')
         .select('loket_id, queue_number, called_at')
         .eq('status', 'called')
         .not('loket_id', 'is', null)
+        .gte('created_at', todayStart)
+        .lt('created_at', tomorrowStart)
         .order('called_at', { ascending: false });
 
       if (error) {
@@ -81,6 +92,18 @@ export default function QueueInfoDisplay() {
         });
 
         console.log('Queue data updated from database:', latestTicket);
+      } else {
+        // Reset display if no queue for today
+        console.log('No queue data for today, resetting display');
+        setCurrentQueue(0);
+        setCurrentLoket(1);
+        setLoketQueues({
+          1: { status: 'active', currentNumber: 0, remaining: 0 },
+          2: { status: 'active', currentNumber: 0, remaining: 0 },
+          3: { status: 'active', currentNumber: 0, remaining: 0 },
+          4: { status: 'active', currentNumber: 0, remaining: 0 },
+          5: { status: 'active', currentNumber: 0, remaining: 0 },
+        });
       }
     } catch (err) {
       console.error('Error in fetchLatestQueueData:', err);
