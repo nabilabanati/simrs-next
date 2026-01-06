@@ -22,32 +22,26 @@ export default async function handler(
 
   try {
     // ============================================
-    // Step 1: Get least busy loket (load balancing)
+    // Step 1 & 2: Get loket and queue number in parallel (OPTIMIZED)
     // ============================================
     
-    const { data: loketData, error: loketError } = await supabaseServer
-      .rpc('get_least_busy_loket');
+    const [loketResult, queueResult] = await Promise.all([
+      supabaseServer.rpc('get_least_busy_loket'),
+      supabaseServer.rpc('get_next_queue_number')
+    ]);
 
-    if (loketError) {
-      console.error('Error getting least busy loket:', loketError);
-      throw loketError;
+    if (loketResult.error) {
+      console.error('Error getting least busy loket:', loketResult.error);
+      throw loketResult.error;
     }
 
-    const assignedLoket = loketData || 1; // Fallback to loket 1 if function fails
-
-    // ============================================
-    // Step 2: Get next queue number for today
-    // ============================================
-    
-    const { data: queueNumber, error: queueError } = await supabaseServer
-      .rpc('get_next_queue_number');
-
-    if (queueError) {
-      console.error('Error getting next queue number:', queueError);
-      throw queueError;
+    if (queueResult.error) {
+      console.error('Error getting next queue number:', queueResult.error);
+      throw queueResult.error;
     }
 
-    const nextQueueNumber = queueNumber || 1;
+    const assignedLoket = loketResult.data || 1; // Fallback to loket 1 if function fails
+    const nextQueueNumber = queueResult.data || 1;
 
     // ============================================
     // Step 3: Create queue_ticket record

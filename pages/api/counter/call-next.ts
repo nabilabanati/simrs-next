@@ -28,8 +28,17 @@ export default async function handler(
       });
     }
 
+    // Get today's date range (start and end of day in local timezone)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStart = today.toISOString();
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStart = tomorrow.toISOString();
+
     // ============================================
-    // Step 1: Find next waiting ticket (FIFO)
+    // Step 1: Find next waiting ticket (FIFO, today only)
     // ============================================
     
     const { data: nextTicket, error: findError } = await supabaseServer
@@ -37,6 +46,8 @@ export default async function handler(
       .select('*')
       .eq('loket_id', loket_id)
       .eq('status', 'waiting')
+      .gte('created_at', todayStart)
+      .lt('created_at', tomorrowStart)
       .order('created_at', { ascending: true })
       .limit(1)
       .single();
@@ -50,7 +61,7 @@ export default async function handler(
 
     // ============================================
     // Step 1.5: Mark previous 'called' ticket as no_show
-    // (if exists and not yet registered)
+    // (if exists and not yet registered, today only)
     // ============================================
     
     const { error: noShowError } = await supabaseServer
@@ -61,6 +72,8 @@ export default async function handler(
       })
       .eq('loket_id', loket_id)
       .eq('status', 'called')
+      .gte('created_at', todayStart)
+      .lt('created_at', tomorrowStart)
       .neq('id', nextTicket.id); // Don't update the ticket we're about to call
 
     if (noShowError) {

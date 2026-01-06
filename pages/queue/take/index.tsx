@@ -21,6 +21,7 @@ export default function QueueTakePage() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [nextQueueNumber, setNextQueueNumber] = useState<number>(1);
 
   // Initialize time on client-side only to prevent hydration error
   useEffect(() => {
@@ -36,6 +37,31 @@ export default function QueueTakePage() {
     }, 1000);
     return () => clearInterval(interval);
   }, [currentTime]);
+
+  // Fetch preview of next queue number
+  const fetchNextQueueNumber = async () => {
+    try {
+      const response = await fetch('/api/queue/preview-next');
+      const data = await response.json();
+      
+      if (response.ok && data.next_queue_number) {
+        setNextQueueNumber(data.next_queue_number);
+      }
+    } catch (error) {
+      console.error('Error fetching next queue number:', error);
+    }
+  };
+
+  // Auto-refresh next queue number every 3 seconds
+  useEffect(() => {
+    fetchNextQueueNumber(); // Initial fetch
+    
+    const interval = setInterval(() => {
+      fetchNextQueueNumber();
+    }, 3000); // Refresh every 3 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-hide success modal after 3 seconds
   useEffect(() => {
@@ -58,6 +84,9 @@ export default function QueueTakePage() {
   }, [showErrorModal]);
 
   const handleTakeQueue = async () => {
+    // Prevent double-click
+    if (loading) return;
+    
     setLoading(true);
     try {
       const response = await fetch('/api/queue/take-ticket', {
@@ -90,6 +119,11 @@ export default function QueueTakePage() {
 
       // localStorage for cross-tab sync
       localStorage.setItem('lastTicketTaken', JSON.stringify(ticketData));
+      
+      // Refresh preview immediately after taking ticket
+      setTimeout(() => {
+        fetchNextQueueNumber();
+      }, 500);
     } catch (error) {
       console.error('Error taking ticket:', error);
       setErrorMessage('Gagal mengambil nomor antrian. Silakan coba lagi.');
@@ -158,7 +192,7 @@ export default function QueueTakePage() {
 
                 <div className="mb-6">
                   <div className="text-9xl font-black text-gray-800 mb-4">
-                    {displayNumber}
+                    {String(nextQueueNumber).padStart(3, '0')}
                   </div>
                   <div className="text-gray-600 text-lg mt-8">{queueTimeString}</div>
                   <p className="text-gray-500 text-sm mt-4">Silakan menunggu panggilan</p>
@@ -175,7 +209,14 @@ export default function QueueTakePage() {
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-8 px-8 rounded-xl text-2xl shadow-lg hover:shadow-xl transition-all duration-300 h-20 disabled:opacity-50 disabled:cursor-not-allowed"
             size="lg"
           >
-            {loading ? 'Mengambil Nomor...' : 'AMBIL NOMOR ANTRIAN'}
+            {loading ? (
+              <div className="flex items-center justify-center gap-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                <span>Mengambil Nomor...</span>
+              </div>
+            ) : (
+              'AMBIL NOMOR ANTRIAN'
+            )}
           </Button>
         </div>
       </main>
