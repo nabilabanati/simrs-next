@@ -115,50 +115,45 @@ async function checkDoctorQuota(dokterId: string, tanggal: string) {
     const dayNames = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu']
     const hari = dayNames[checkDate.getDay()]
 
-    // Get all doctor schedules for this day (can be multiple sessions)
+    // Check if doctor has schedule for this day
     const { data: schedules } = await supabase
         .from('doctor_schedules')
-        .select(`
-            max_patients_per_day,
-            session_name,
-            doctors:dokter_id (
-                users:user_id (nama)
-            )
-        `)
+        .select('session_name')
         .eq('dokter_id', dokterId)
         .eq('hari', hari)
         .eq('is_active', true)
 
     if (!schedules || schedules.length === 0) {
-        // No schedule for this day
+        // No schedule for this day - doctor not available
         return {
             doctor_name: '-',
             max: null,
             current: 0,
             remaining: null,
-            can_register: true,
-            unlimited: true
+            can_register: false,
+            reason: 'Dokter tidak praktik pada hari ini'
         }
     }
 
-    // Aggregate total quota from all sessions
-    const totalQuota = schedules.reduce((sum, s) => {
-        return sum + (s.max_patients_per_day || 0)
-    }, 0)
+    // Get doctor's daily quota from doctors table
+    const { data: doctor } = await supabase
+        .from('doctors')
+        .select(`
+            kuota_harian,
+            users:user_id (nama)
+        `)
+        .eq('id', dokterId)
+        .single()
 
-    if (totalQuota === 0) {
-        // No quota limit set
+    if (!doctor || !doctor.kuota_harian) {
+        // No quota limit set - unlimited
         return {
-            doctor_name: schedules[0]?.doctors?.users?.nama || '-',
+            doctor_name: (doctor?.users as any)?.nama || '-',
             max: null,
             current: 0,
             remaining: null,
             can_register: true,
-            unlimited: true,
-            sessions: schedules.map(s => ({
-                session_name: s.session_name,
-                quota: s.max_patients_per_day
-            }))
+            unlimited: true
         }
     }
 
@@ -175,18 +170,14 @@ async function checkDoctorQuota(dokterId: string, tanggal: string) {
     }
 
     const currentCount = count || 0
-    const remaining = totalQuota - currentCount
+    const remaining = doctor.kuota_harian - currentCount
 
     return {
-        doctor_name: schedules[0].doctors?.users?.nama || '-',
-        max: totalQuota,
+        doctor_name: (doctor.users as any)?.nama || '-',
+        max: doctor.kuota_harian,
         current: currentCount,
         remaining: Math.max(0, remaining),
-        can_register: currentCount < totalQuota,
-        unlimited: false,
-        sessions: schedules.map(s => ({
-            session_name: s.session_name,
-            quota: s.max_patients_per_day
-        }))
+        can_register: currentCount < doctor.kuota_harian,
+        unlimited: false
     }
 }

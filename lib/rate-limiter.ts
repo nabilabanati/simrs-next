@@ -16,7 +16,7 @@ interface RateLimitAttempt {
 class RateLimiter {
     private ipAttempts = new Map<string, RateLimitAttempt>();
 
-    private readonly maxAttempts = 5;           // Per IP (all usernames)
+    private readonly maxAttempts = 10;           // Per IP (all usernames)
     private readonly windowMs = 5 * 60 * 1000;  // 5 minutes
     private readonly lockDurationMs = 5 * 60 * 1000; // 5 minutes
 

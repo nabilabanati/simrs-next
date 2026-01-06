@@ -26,7 +26,6 @@ interface Schedule {
     jam_mulai: string
     jam_selesai: string
     session_name: string | null
-    max_patients_per_day: number | null
     is_active: boolean
 }
 
@@ -46,6 +45,9 @@ export default function DoctorSchedulePage() {
     const [overrides, setOverrides] = useState<ScheduleOverride[]>([])
     const [dokterId, setDokterId] = useState<string>('')
     const [poliName, setPoliName] = useState<string>('')
+    const [kuotaHarian, setKuotaHarian] = useState<number>(30)
+    const [isEditingQuota, setIsEditingQuota] = useState(false)
+    const [tempKuota, setTempKuota] = useState<string>('')
 
     // Regular schedule modal
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false)
@@ -54,7 +56,6 @@ export default function DoctorSchedulePage() {
     const [jamMulai, setJamMulai] = useState('')
     const [jamSelesai, setJamSelesai] = useState('')
     const [sessionName, setSessionName] = useState('')
-    const [maxPatients, setMaxPatients] = useState('')
 
     // Override modal
     const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false)
@@ -87,7 +88,7 @@ export default function DoctorSchedulePage() {
             const { supabase } = await import('@/lib/supabase')
             const { data, error } = await supabase
                 .from('doctors')
-                .select('id')
+                .select('id, kuota_harian')
                 .eq('user_id', userId)
                 .single()
 
@@ -97,6 +98,7 @@ export default function DoctorSchedulePage() {
             }
 
             setDokterId(data.id)
+            setKuotaHarian(data.kuota_harian || 30)
 
             // Get poli info
             const { data: poliRelasi } = await supabase
@@ -114,6 +116,39 @@ export default function DoctorSchedulePage() {
             fetchOverrides(data.id)
         } catch (error) {
             console.error('Error fetching doctor ID:', error)
+            toast.error('Terjadi kesalahan')
+        }
+    }
+
+    const handleUpdateQuota = async () => {
+        const quota = parseInt(tempKuota)
+        if (isNaN(quota) || quota < 0) {
+            toast.error('Kuota harus berupa angka positif')
+            return
+        }
+
+        try {
+            const response = await fetch('/api/doctor/update-quota', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    dokter_id: dokterId,
+                    kuota_harian: quota
+                })
+            })
+
+            const data = await response.json()
+
+            if (data.success) {
+                setKuotaHarian(quota)
+                setIsEditingQuota(false)
+                toast.success('Kuota harian berhasil diupdate')
+            } else {
+                toast.error(data.error || 'Gagal mengupdate kuota')
+            }
+        } catch (error) {
+            console.error('Error updating quota:', error)
             toast.error('Terjadi kesalahan')
         }
     }
@@ -174,8 +209,7 @@ export default function DoctorSchedulePage() {
                         hari: selectedDay,
                         jam_mulai: jamMulai,
                         jam_selesai: jamSelesai,
-                        session_name: sessionName || null,
-                        max_patients_per_day: maxPatients ? parseInt(maxPatients) : null
+                        session_name: sessionName || null
                     })
                 })
 
@@ -200,8 +234,7 @@ export default function DoctorSchedulePage() {
                         hari: selectedDay,
                         jam_mulai: jamMulai,
                         jam_selesai: jamSelesai,
-                        session_name: sessionName || null,
-                        max_patients_per_day: maxPatients ? parseInt(maxPatients) : null
+                        session_name: sessionName || null
                     })
                 })
 
@@ -228,7 +261,6 @@ export default function DoctorSchedulePage() {
         setJamMulai(schedule.jam_mulai)
         setJamSelesai(schedule.jam_selesai)
         setSessionName(schedule.session_name || '')
-        setMaxPatients(schedule.max_patients_per_day?.toString() || '')
         setIsScheduleModalOpen(true)
     }
 
@@ -331,7 +363,6 @@ export default function DoctorSchedulePage() {
         setJamMulai('')
         setJamSelesai('')
         setSessionName('')
-        setMaxPatients('')
     }
 
     const resetOverrideForm = () => {
@@ -370,6 +401,62 @@ export default function DoctorSchedulePage() {
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight mb-6">Jadwal Praktik</h1>
                     </div>
+                    {/* Daily Quota Management */}
+                    <Card className="mb-6">
+                        <CardHeader>
+                            <div className="flex justify-between items-center">
+                                <div className="flex-1">
+                                    <CardTitle className="mb-3">Kuota Pasien Harian</CardTitle>
+                                    {isEditingQuota ? (
+                                        <div className="flex items-center gap-2">
+                                            <Label>Kuota Harian:</Label>
+                                            <Input
+                                                type="number"
+                                                value={tempKuota}
+                                                onChange={(e) => setTempKuota(e.target.value)}
+                                                placeholder="Contoh: 30"
+                                                className="w-24"
+                                                min="0"
+                                            />
+                                            <span className="text-gray-600">pasien per hari</span>
+                                        </div>
+                                    ) : (
+                                        <p className="text-gray-700">
+                                            Kuota Harian: <span className="font-semibold text-blue-600">{kuotaHarian}</span> pasien per hari
+                                        </p>
+                                    )}
+                                </div>
+                                {isEditingQuota ? (
+                                    <div className="flex gap-2">
+                                        <Button
+                                            onClick={handleUpdateQuota}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                                        >
+                                            Simpan
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setIsEditingQuota(false)}
+                                            className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                                        >
+                                            Batal
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <Button
+                                        onClick={() => {
+                                            setTempKuota(kuotaHarian.toString())
+                                            setIsEditingQuota(true)
+                                        }}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    >
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Edit
+                                    </Button>
+                                )}
+                            </div>
+                        </CardHeader>
+                    </Card>
 
                     {/* Regular Schedules */}
                     <Card>
@@ -429,11 +516,6 @@ export default function DoctorSchedulePage() {
                                                                         <Clock className="h-3 w-3 flex-shrink-0" />
                                                                         <span className="text-xs">{formatTime(schedule.jam_mulai)} - {formatTime(schedule.jam_selesai)}</span>
                                                                     </p>
-                                                                    {schedule.max_patients_per_day && (
-                                                                        <p className="text-xs text-gray-500 mt-1">
-                                                                            Kuota: {schedule.max_patients_per_day}
-                                                                        </p>
-                                                                    )}
                                                                     <div className="flex gap-1 mt-2">
                                                                         <Button
                                                                             size="sm"
@@ -463,7 +545,8 @@ export default function DoctorSchedulePage() {
                         </CardContent>
                     </Card>
                     <div className='mb-6'></div>
-                    {/* Schedule Overrides */}
+
+                    {/*                                         
                     <Card>
                         <CardHeader>
                             <div className="flex justify-between items-center">
@@ -530,7 +613,7 @@ export default function DoctorSchedulePage() {
                         </CardContent>
                     </Card>
 
-                    {/* Add Schedule Modal */}
+                    
                     <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
                         <DialogContent>
                             <DialogHeader>
@@ -582,20 +665,6 @@ export default function DoctorSchedulePage() {
                                         />
                                     </div>
                                 </div>
-                                <div>
-                                    <Label>Kuota Pasien (Opsional)</Label>
-                                    <Input
-                                        type="number"
-                                        value={maxPatients}
-                                        onChange={(e) => setMaxPatients(e.target.value)}
-                                        placeholder="Contoh: 10"
-                                        className="mt-1"
-                                        min="1"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Maksimal pasien untuk sesi ini. Kosongkan untuk unlimited.
-                                    </p>
-                                </div>
                             </div>
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setIsScheduleModalOpen(false)} className="border-gray-300 text-gray-700 hover:bg-gray-50">
@@ -606,7 +675,7 @@ export default function DoctorSchedulePage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* Add Override Modal */}
+                    
                     <Dialog open={isOverrideModalOpen} onOpenChange={setIsOverrideModalOpen}>
                         <DialogContent>
                             <DialogHeader>
@@ -673,7 +742,8 @@ export default function DoctorSchedulePage() {
                                 <Button onClick={handleSaveOverride} className="bg-blue-600 hover:bg-blue-700 text-white">Simpan</Button>
                             </DialogFooter>
                         </DialogContent>
-                    </Dialog>
+                    </Dialog> 
+                    */}
                 </div>
             </div>
         </DoctorLayout>

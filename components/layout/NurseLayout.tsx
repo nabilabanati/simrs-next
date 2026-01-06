@@ -86,7 +86,7 @@ export default function NurseLayout({ children }: NurseLayoutProps) {
                             <User className="w-4 h-4 text-white" />
                         </div>
                         <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900 break-words">{userName}</p>
+                            <p className="text-sm font-medium text-gray-900 break-words" suppressHydrationWarning>{userName}</p>
                             <p className="text-xs text-gray-500">Perawat</p>
                         </div>
                     </div>

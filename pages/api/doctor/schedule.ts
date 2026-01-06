@@ -57,7 +57,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
 
 async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     try {
-        const { dokter_id, hari, jam_mulai, jam_selesai, session_name, max_patients_per_day, is_active } = req.body
+        const { dokter_id, hari, jam_mulai, jam_selesai, session_name, is_active } = req.body
 
         if (!dokter_id || !hari || !jam_mulai || !jam_selesai) {
             return res.status(400).json({
@@ -80,7 +80,6 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
                 jam_mulai,
                 jam_selesai,
                 session_name: session_name || null,
-                max_patients_per_day: max_patients_per_day || null,
                 is_active: is_active !== undefined ? is_active : true,
                 updated_at: new Date().toISOString()
             })
@@ -108,7 +107,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
 async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     try {
         const { id } = req.query
-        const { hari, jam_mulai, jam_selesai, session_name, max_patients_per_day, is_active } = req.body
+        const { hari, jam_mulai, jam_selesai, session_name, is_active } = req.body
 
         if (!id) {
             return res.status(400).json({ error: 'Schedule ID is required' })
@@ -134,7 +133,6 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
                 jam_mulai,
                 jam_selesai,
                 session_name: session_name || null,
-                max_patients_per_day: max_patients_per_day || null,
                 is_active: is_active !== undefined ? is_active : true,
                 updated_at: new Date().toISOString()
             })

@@ -216,66 +216,72 @@ export default function NurseDashboard() {
 
     return (
         <NurseLayout>
-            <div className="mb-6 px-12 pb-12 py-12 pr-12 pl-12 pt-16">
-                <Breadcrumb
-                    items={[
-                        { label: `${poliName}` },
-                        { label: "Dashboard Perawat" },
-                    ]}
-                />
+            <div className="min-h-screen bg-white">
+                <div className="px-12 pb-12 py-12 pr-12 pl-12 pt-16">
+                    <div suppressHydrationWarning>
+                        <Breadcrumb
+                            items={[
+                                { label: `${poliName}` },
+                                { label: "Dashboard Perawat" },
+                            ]}
+                        />
+                    </div>
 
-                <DashboardHeader
-                    title="Dashboard Perawat"
-                    userName={nurseName}
-                    greeting="Selamat Datang"
-                />
+                    <div suppressHydrationWarning>
+                        <DashboardHeader
+                            title="Dashboard Perawat"
+                            userName={nurseName}
+                            greeting="Selamat Datang"
+                        />
+                    </div>
 
-                <NurseSummaryCards
-                    totalPatients={visits.length}
-                    waitingTTV={visits.filter(v => v.ttv_status === 'belum').length}
-                    completedTTV={visits.filter(v => v.ttv_status === 'selesai').length}
-                />
-
-                <div className="mt-8 mb-4 max-w-xs">
-                    <SearchInput
-                        value={searchQuery}
-                        onChange={setSearchQuery}
-                        placeholder="Cari No. Reg, NRM, atau Nama Pasien"
+                    <NurseSummaryCards
+                        totalPatients={visits.length}
+                        waitingTTV={visits.filter(v => v.ttv_status === 'belum').length}
+                        completedTTV={visits.filter(v => v.ttv_status === 'selesai').length}
                     />
+
+                    <div className="mt-8 mb-4 max-w-xs">
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="Cari No. Reg, NRM, atau Nama Pasien"
+                        />
+                    </div>
+
+
+                    <NurseVisitsTable
+                        visits={filteredVisits}
+                        loading={loading}
+                        searchQuery={searchQuery}
+                        nurseId={nurseId}
+                        onPickPatient={handlePickPatient}
+                        onResumeTTV={handleResumeTTV}
+                        onCancelTTV={handleCancelTTV}
+                        onViewDetail={handleViewDetail}
+                    />
+
                 </div>
 
-
-                <NurseVisitsTable
-                    visits={filteredVisits}
-                    loading={loading}
-                    searchQuery={searchQuery}
-                    nurseId={nurseId}
-                    onPickPatient={handlePickPatient}
-                    onResumeTTV={handleResumeTTV}
-                    onCancelTTV={handleCancelTTV}
-                    onViewDetail={handleViewDetail}
+                <TTVModal
+                    isOpen={isModalOpen}
+                    onClose={() => {
+                        setIsModalOpen(false);
+                        setSelectedVisit(null);
+                    }}
+                    selectedVisit={selectedVisit}
+                    onSubmit={handleTTVSubmit}
                 />
 
+                <TTVDetailModal
+                    isOpen={detailModalOpen}
+                    onClose={() => {
+                        setDetailModalOpen(false);
+                        setDetailVisit(null);
+                    }}
+                    visit={detailVisit}
+                />
             </div>
-
-            <TTVModal
-                isOpen={isModalOpen}
-                onClose={() => {
-                    setIsModalOpen(false);
-                    setSelectedVisit(null);
-                }}
-                selectedVisit={selectedVisit}
-                onSubmit={handleTTVSubmit}
-            />
-
-            <TTVDetailModal
-                isOpen={detailModalOpen}
-                onClose={() => {
-                    setDetailModalOpen(false);
-                    setDetailVisit(null);
-                }}
-                visit={detailVisit}
-            />
         </NurseLayout>
     );
 }
