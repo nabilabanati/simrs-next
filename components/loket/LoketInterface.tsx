@@ -16,9 +16,17 @@ import { Volume2, Users, Clock, Download } from 'lucide-react';
 import PatientSearchModal from '@/components/modals/patient-search-modal';
 import AddVisitModal from '@/components/modals/add-visit-modal';
 import QueueTicketModal from '@/components/modals/queue-ticket-modal';
-import { fetchPoli, fetchAllDoctors, fetchPaymentMethods } from '@/lib/api-client';
-import type { Poli, Doctor, PaymentMethod } from '@/lib/api-client';
+import { fetchPoli, fetchDoctors, fetchPenjamin } from '@/lib/api-client/index';
+import type { Poli, Doctor } from '@/lib/types';
 import { toast } from 'sonner';
+
+// Type for penjamin data (payment methods)
+interface PaymentMethod {
+  id: string;
+  name?: string;
+  nama?: string;
+  tipe?: string;
+}
 
 interface LoketInterfaceProps {
   loketId: number; // 1-5
@@ -139,8 +147,8 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
       try {
         const [polisData, doctorsData, paymentsData] = await Promise.all([
           fetchPoli(),
-          fetchAllDoctors(),
-          fetchPaymentMethods(),
+          fetchDoctors(),
+          fetchPenjamin(),
         ]);
         setPolis(polisData);
         setDoctors(doctorsData);
@@ -496,7 +504,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
                   >
                     <option value="">Semua</option>
                     {paymentMethods.map((pm) => (
-                      <option key={pm.id} value={pm.name}>{pm.name}</option>
+                      <option key={pm.id} value={pm.nama || pm.name}>{pm.nama || pm.name}</option>
                     ))}
                   </select>
                 </div>
@@ -511,7 +519,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
                   >
                     <option value="">Semua</option>
                     {polis.map((poli) => (
-                      <option key={poli.id} value={poli.name}>{poli.name}</option>
+                      <option key={poli.id} value={poli.nama}>{poli.nama}</option>
                     ))}
                   </select>
                 </div>
@@ -526,7 +534,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
                   >
                     <option value="">Semua</option>
                     {doctors.map((doctor) => (
-                      <option key={doctor.id} value={doctor.name}>{doctor.name}</option>
+                      <option key={doctor.id} value={doctor.nama}>{doctor.nama}</option>
                     ))}
                   </select>
                 </div>
