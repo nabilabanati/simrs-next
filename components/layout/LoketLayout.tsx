@@ -45,8 +45,8 @@ export function LoketLayout({ children, loketId }: LoketLayoutProps) {
 
   return (
     <div className="min-h-screen w-full bg-gray-50 flex">
-      {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      {/* Sidebar - Fixed */}
+      <div className="fixed left-0 top-0 w-64 h-screen bg-white border-r border-gray-200 flex flex-col z-40">
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-bold text-gray-800">Loket {loketId}</h2>
@@ -110,8 +110,8 @@ export function LoketLayout({ children, loketId }: LoketLayoutProps) {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto p-10">
+      {/* Main Content - Offset by fixed sidebar */}
+      <div className="flex-1 ml-64 overflow-auto p-10">
         {children}
       </div>
     </div>

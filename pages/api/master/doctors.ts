@@ -13,7 +13,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   let q = supabaseServer
     .from("doctors")
-    .select("id, user_id, spesialis, sip, created_at");
+    .select("id, user_id, spesialis, sip, created_at, users(nama)");
 
   if (poliId) {
     // join doctor_poli relation: simple filter by doctor_poli
@@ -29,7 +29,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const { data, error } = await q;
   if (error) return fail(res, error.message);
-  return ok(res, data);
+  
+  // Transform data to include nama from users
+  const transformedData = (data || []).map((doc: any) => ({
+    ...doc,
+    nama: doc.users?.nama || '-'
+  }));
+  
+  return ok(res, transformedData);
 }
 
 export default withAuth(withRoles(READ_ROLES, handler));

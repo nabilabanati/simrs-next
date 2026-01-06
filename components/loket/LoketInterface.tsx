@@ -88,7 +88,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
         const userStr = localStorage.getItem('user');
         
         if (!userStr) {
-          console.log('❌ [LoketInterface] No user in localStorage, redirecting to login');
+          console.log('[LoketInterface] No user in localStorage, redirecting to login');
           router.push(`/login?redirect=/counter/loket-${loketId}`);
           return;
         }
@@ -113,7 +113,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
           const assignedLokets = assignments?.map(a => a.loket_id) || [];
           
           if (!assignedLokets.includes(loketId)) {
-            console.log(`❌ [LoketInterface] User not assigned to loket ${loketId}`);
+            console.log(`[LoketInterface] User not assigned to loket ${loketId}`);
             router.push('/unauthorized');
             return;
           }
@@ -206,11 +206,28 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
       if (filterDokter) params.append('dokter_id', filterDokter);
       if (filterPenjamin) params.append('penjamin_id', filterPenjamin);
 
-      const response = await fetch(`/api/admin/loket/dashboard?${params}`);
+      const url = `/api/admin/loket/dashboard?${params}`;
+      console.log('🔵 Fetching visits from:', url);
+      console.log('📊 Filter params:', {
+        loket_id: loketId,
+        tab,
+        dateFrom,
+        dateTo,
+        filterPoli,
+        filterDokter,
+        filterPenjamin,
+        searchInput
+      });
+
+      const response = await fetch(url);
       const result = await response.json();
+
+      console.log('✅ API Response Status:', response.status);
+      console.log('📦 API Response Data:', result);
 
       if (response.ok) {
         let data = result.data || [];
+        console.log('📋 Total data dari API:', data.length);
 
         // Client-side search filter
         if (searchInput.trim()) {
@@ -220,16 +237,18 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
             visit.patient?.nama?.toLowerCase().includes(search) ||
             visit.no_reg?.toLowerCase().includes(search)
           );
+          console.log('🔍 Data setelah search:', data.length);
         }
 
+        console.log('✅ Final visits to display:', data.length);
         setVisits(data);
       } else {
-        console.error('Error fetching visits:', result);
-        toast.error('Gagal memuat data kunjungan');
+        console.error('❌ API Error Response:', result);
+        toast.error('Gagal memuat data kunjungan: ' + (result.error || result.message || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error fetching visits:', error);
-      toast.error('Gagal memuat data kunjungan');
+      console.error('❌ Fetch error:', error);
+      toast.error('Gagal memuat data kunjungan: ' + (error instanceof Error ? error.message : 'Network error'));
     } finally {
       setLoadingVisits(false);
     }
@@ -241,6 +260,39 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
 
   // Call next patient
   const handleCallNext = async () => {
+    console.time('⏱️ Call Next Patient');
+    
+    // Optimistic UI Update - Get next waiting ticket from local state
+    if (!waitingQueue || waitingQueue.length === 0) {
+      toast.error(`Tidak ada antrian yang menunggu di Loket ${loketId}`);
+      return;
+    }
+    
+    const nextInQueue = waitingQueue[0];
+    const optimisticTicket = {
+      id: nextInQueue.id,
+      queue_number: nextInQueue.queue_number,
+      loket_id: loketId,
+      status: 'called' as const,
+      called_at: new Date().toISOString(),
+      created_at: nextInQueue.created_at
+    };
+    
+    // Update UI IMMEDIATELY (optimistic)
+    const previousTicket = currentTicket;
+    setCurrentTicket(optimisticTicket);
+    setWaitingQueue(prev => prev.slice(1)); // Remove first item
+    setWaitingCount(prev => Math.max(0, prev - 1));
+    
+    // Show success immediately
+    toast.success(`Antrian ${optimisticTicket.queue_number} dipanggil`);
+    announceQueue(optimisticTicket.queue_number, loketId);
+    broadcastQueueCall(optimisticTicket);
+    
+    console.timeEnd('Call Next Patient');
+    console.log('UI updated optimistically (instant!)');
+    
+    // Call API in background to sync with database
     setLoading(true);
     try {
       const response = await fetch('/api/counter/call-next', {
@@ -252,6 +304,12 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
       const data = await response.json();
 
       if (!response.ok) {
+        // Rollback optimistic update on error
+        console.error('API call failed, rolling back...');
+        setCurrentTicket(previousTicket);
+        setWaitingQueue(prev => [nextInQueue, ...prev]);
+        setWaitingCount(prev => prev + 1);
+        
         if (response.status === 404) {
           toast.error(`Tidak ada antrian yang menunggu di Loket ${loketId}`);
         } else {
@@ -259,14 +317,20 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
         }
         return;
       }
-
+      
+      // Sync with actual data from server
+      console.log('API call successful, syncing data...');
       setCurrentTicket(data.ticket);
-      announceQueue(data.ticket.queue_number, loketId);
-      broadcastQueueCall(data.ticket);
-      await fetchQueue();
-      toast.success(`Antrian ${data.ticket.queue_number} dipanggil`);
+      
+      // Fetch queue in background to ensure consistency
+      fetchQueue();
+      
     } catch (error) {
-      console.error('Error calling next:', error);
+      // Rollback on error
+      console.error('Error calling next, rolling back:', error);
+      setCurrentTicket(previousTicket);
+      setWaitingQueue(prev => [nextInQueue, ...prev]);
+      setWaitingCount(prev => prev + 1);
       toast.error('Terjadi kesalahan saat memanggil antrian');
     } finally {
       setLoading(false);
@@ -334,9 +398,11 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
   };
 
   const handlePatientSelected = (patient: any) => {
+    console.log('[LoketInterface] Patient selected:', patient);
     setSelectedPatient(patient);
     setShowSearchModal(false);
     setShowVisitModal(true);
+    console.log('[LoketInterface] showVisitModal set to true');
   };
 
   const handleCreateNewPatient = () => {
@@ -412,6 +478,138 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
     } catch (error: any) {
       console.error('Error saving visit:', error);
       toast.error('Gagal menyimpan registrasi: ' + error.message);
+    }
+  };
+
+  const handlePrintTicket = (visit: any) => {
+    // Check if visit is from today
+    const visitDate = new Date(visit.created_at).toDateString();
+    const today = new Date().toDateString();
+    
+    if (visitDate !== today) {
+      toast.error('Hanya dapat print untuk kunjungan hari ini!');
+      return;
+    }
+
+    // Prepare data for ticket modal
+    const ticketData = {
+      queueNumber: visit.queue_tickets?.queue_number?.toString() || '-',
+      registrationNo: visit.no_reg || 'N/A',
+      nrm: visit.patient?.nrm || '-',
+      patientName: visit.patient?.nama || visit.patient?.name || '-',
+      poliName: visit.poli?.nama || '-',
+      doctorName: visit.doctor?.nama || '-',
+      paymentMethod: visit.penjamin?.nama || 'UMUM',
+      price: visit.harga || 0,
+      bpjsNumber: visit.patient?.bpjs_number || '',
+      insuranceNumber: visit.patient?.insurance_number || ''
+    };
+    
+    setSavedVisitData(ticketData);
+    setShowTicketModal(true);
+  };
+
+  // Check if a visit is from today
+  const isVisitToday = (visit: any) => {
+    const visitDate = new Date(visit.created_at).toDateString();
+    const today = new Date().toDateString();
+    return visitDate === today;
+  };
+
+  // Export to Excel
+  const handleExportExcel = () => {
+    if (visits.length === 0) {
+      toast.error('Tidak ada data untuk diexport');
+      return;
+    }
+
+    try {
+      // Dynamic import xlsx
+      const { utils, writeFile } = require('xlsx');
+
+      // Prepare data
+      const data = visits.map((visit, idx) => ({
+        'NO': idx + 1,
+        'NO. REG': visit.no_reg,
+        'TANGGAL': new Date(visit.created_at).toLocaleDateString('id-ID'),
+        'NRM': visit.patient?.nrm || '-',
+        'NAMA PASIEN': visit.patient?.nama || '-',
+        'JK': visit.patient?.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan',
+        'POLIKLINIK': visit.poli?.nama || '-',
+        'DOKTER': visit.doctor?.nama || '-',
+        'CARA BAYAR': visit.penjamin?.nama || 'UMUM',
+        'HARGA': visit.harga || 0,
+        'STATUS': visit.status === 'pending' || visit.status === 'menunggu' ? 'Terdaftar' :
+                  visit.status === 'processed' ? 'Ditangani' :
+                  (visit.status === 'completed' || visit.status === 'selesai') ? 'Selesai' :
+                  visit.status || 'Terdaftar'
+      }));
+
+      // Create workbook
+      const ws = utils.json_to_sheet(data);
+      const wb = utils.book_new();
+      utils.book_append_sheet(wb, ws, 'Kunjungan');
+
+      // Set column widths
+      const colWidths = [
+        { wch: 5 },   // NO
+        { wch: 15 },  // NO. REG
+        { wch: 12 },  // TANGGAL
+        { wch: 12 },  // NRM
+        { wch: 25 },  // NAMA PASIEN
+        { wch: 12 },  // JK
+        { wch: 18 },  // POLIKLINIK
+        { wch: 18 },  // DOKTER
+        { wch: 15 },  // CARA BAYAR
+        { wch: 12 },  // HARGA
+        { wch: 15 },  // STATUS
+      ];
+      ws['!cols'] = colWidths;
+
+      // Add header styling
+      const headerStyle = {
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '2563EB' } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+      };
+
+      // Apply header styles
+      for (let i = 0; i < Object.keys(data[0]).length; i++) {
+        const cellRef = utils.encode_col(i) + '1';
+        if (ws[cellRef]) {
+          ws[cellRef].s = headerStyle;
+        }
+      }
+
+      // Add borders to all cells
+      const range = utils.decode_range(ws['!ref']);
+      for (let r = range.s.r; r <= range.e.r; r++) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const cellRef = utils.encode_cell({ r, c });
+          if (!ws[cellRef]) ws[cellRef] = {};
+          ws[cellRef].s = ws[cellRef].s || {};
+          ws[cellRef].s.border = {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+          // Alignment
+          ws[cellRef].s.alignment = { horizontal: 'left', vertical: 'center', wrapText: true };
+        }
+      }
+
+      // Generate filename
+      const fileName = activeTab === 'today' 
+        ? `Kunjungan_Hari_Ini_${new Date().toLocaleDateString('id-ID').replace(/\//g, '-')}.xlsx`
+        : `Semua_Kunjungan_${new Date().toLocaleDateString('id-ID').replace(/\//g, '-')}.xlsx`;
+
+      // Write file
+      writeFile(wb, fileName);
+      toast.success(`Export ${visits.length} data berhasil!`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Gagal export data');
     }
   };
 
@@ -504,7 +702,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
                   >
                     <option value="">Semua</option>
                     {paymentMethods.map((pm) => (
-                      <option key={pm.id} value={pm.nama || pm.name}>{pm.nama || pm.name}</option>
+                      <option key={pm.id} value={pm.id}>{pm.nama || pm.name}</option>
                     ))}
                   </select>
                 </div>
@@ -519,7 +717,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
                   >
                     <option value="">Semua</option>
                     {polis.map((poli) => (
-                      <option key={poli.id} value={poli.nama}>{poli.nama}</option>
+                      <option key={poli.id} value={poli.id}>{poli.nama}</option>
                     ))}
                   </select>
                 </div>
@@ -534,7 +732,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
                   >
                     <option value="">Semua</option>
                     {doctors.map((doctor) => (
-                      <option key={doctor.id} value={doctor.nama}>{doctor.nama}</option>
+                      <option key={doctor.id} value={doctor.id}>{doctor.nama}</option>
                     ))}
                   </select>
                 </div>
@@ -703,6 +901,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
               <Button
                 variant="outline"
                 className="px-4 py-2 text-sm"
+                onClick={handleExportExcel}
               >
                 <Download className="w-4 h-4 mr-1" />
                 Export Excel
@@ -791,6 +990,9 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
                           size="sm"
                           variant="outline"
                           className="text-xs px-2 py-1"
+                          onClick={() => handlePrintTicket(visit)}
+                          disabled={!isVisitToday(visit)}
+                          title={!isVisitToday(visit) ? 'Hanya dapat print untuk kunjungan hari ini' : 'Print Struk'}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -816,7 +1018,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
 
 
 
-      {selectedPatient && (
+      {showVisitModal && selectedPatient && (
         <AddVisitModal
           patient={selectedPatient}
           onClose={() => {

@@ -9,7 +9,7 @@ const READ_ROLES = [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.LOKET, ROLES.DOKTER, RO
 const WRITE_ROLES = [ROLES.SUPERADMIN];
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // GET - List all poli
+  // GET - List all poli (READ_ROLES)
   if (req.method === "GET") {
     const { data, error } = await supabaseServer
       .from("poli")
@@ -17,6 +17,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .order("nama", { ascending: true });
     if (error) return fail(res, error.message);
     return ok(res, data);
+  }
+
+  // Check WRITE_ROLES for POST, PUT, DELETE
+  const user = (req as any).user;
+  if (!user || !WRITE_ROLES.includes(user.role)) {
+    return fail(res, "Forbidden: Insufficient permissions", 403);
   }
 
   // POST - Create new poli
@@ -76,4 +82,4 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   return fail(res, "Method not allowed", 405);
 }
 
-export default withAuth(withRoles(WRITE_ROLES, handler));
+export default withAuth(withRoles(READ_ROLES, handler));

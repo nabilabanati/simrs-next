@@ -46,120 +46,11 @@ export default function QueueTicketModal({
       }
     };
     fetchStaffName();
-
-    // Auto-print after 3 seconds
-    const printTimer = setTimeout(() => {
-      handlePrint();
-      onClose();
-    }, 3000);
-
-    return () => {
-      clearTimeout(printTimer);
-    };
   }, []);
 
   const handlePrint = () => {
-    const printWindow = window.open('', '', 'width=800,height=600');
-    if (printWindow) {
-      const cardNumber = paymentMethod.toUpperCase().includes('BPJS') 
-        ? bpjsNumber 
-        : paymentMethod.toUpperCase().includes('ASURANSI') 
-        ? insuranceNumber 
-        : '';
-
-      printWindow.document.write(`
-        <html>
-        <head>
-          <title>Bukti Registrasi - ${registrationNo}</title>
-          <style>
-            @page { size: 80mm auto; margin: 5mm; }
-            body { font-family: 'Courier New', monospace; margin: 0; padding: 10px; font-size: 11px; }
-            .ticket { padding: 15px 10px; }
-            .header { text-align: center; padding-bottom: 15px; margin-bottom: 15px; }
-            .header h2 { margin: 0; font-size: 14px; letter-spacing: 2px; }
-            .header p { margin: 3px 0 0 0; font-size: 11px; }
-            .queue-box { text-align: center; border: 2px solid #000; padding: 12px; margin: 15px 0; }
-            .queue-box p:first-child { font-size: 11px; margin: 0 0 5px 0; }
-            .queue-box p:last-child { font-size: 28px; font-weight: bold; margin: 0; letter-spacing: 3px; }
-            .info-row { display: flex; margin: 5px 0; }
-            .info-row .label { width: 140px; }
-            .info-row .value { flex: 1; }
-
-            .footer { text-align: center; padding-top: 15px; margin-top: 15px; }
-            .footer p { margin: 3px 0; font-size: 10px; }
-            .staff-info { text-align: center; margin: 15px 0 0 0; padding-top: 10px; border-top: 1px dashed #000; }
-            .staff-info p { margin: 3px 0; font-size: 10px; }
-            .staff-info .title { font-weight: bold; }
-            .staff-info .name { margin-top: 25px; border-bottom: 1px solid #000; display: inline-block; min-width: 150px; padding-bottom: 2px; }
-          </style>
-        </head>
-        <body>
-          <div class="ticket">
-            <div class="header">
-              <h2>LAYANAN KESEHATAN</h2>
-              <p>STRUK RAWAT JALAN</p>
-            </div>
-            
-            <div class="queue-box">
-              <p>Nomor Antrian Poli</p>
-              <p>${registrationNo.slice(-3)}</p>
-            </div>
-
-            <div class="info-row">
-              <span class="label">No. Registrasi</span>
-              <span class="value">: ${registrationNo}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Tanggal Registrasi</span>
-              <span class="value">: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-            </div>
-
-            <div class="info-row">
-              <span class="label">NRM</span>
-              <span class="value">: ${nrm}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Nama Pasien</span>
-              <span class="value">: ${patientName.toUpperCase()}</span>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="info-row">
-              <span class="label">Poliklinik</span>
-              <span class="value">: ${poliName}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Dokter</span>
-              <span class="value">: ${doctorName}</span>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="info-row">
-              <span class="label">Cara Bayar</span>
-              <span class="value">: ${paymentMethod}</span>
-            </div>
-            ${paymentMethod.toUpperCase().includes('UMUM') && price 
-              ? `<div class="info-row"><span class="label">Harga</span><span class="value">: Rp ${price.toLocaleString('id-ID')}</span></div>` 
-              : paymentMethod.toUpperCase().includes('BPJS') && bpjsNumber
-              ? `<div class="info-row"><span class="label">No. BPJS</span><span class="value">: ${bpjsNumber}</span></div>`
-              : paymentMethod.toUpperCase().includes('ASURANSI') && insuranceNumber
-              ? `<div class="info-row"><span class="label">No. Asuransi</span><span class="value">: ${insuranceNumber}</span></div>`
-              : ''}
-
-            <div class="footer">
-              <p>Serahkan ke Poliklinik</p>
-              <p>Harap menunggu panggilan</p>
-              <p>Terima Kasih</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
+    // Only trigger browser print dialog when user explicitly clicks print
+    window.print();
   };
 
   const cardNumber = paymentMethod.toUpperCase().includes('BPJS') 
@@ -252,6 +143,33 @@ export default function QueueTicketModal({
             <p className="text-xs text-gray-700">Terima Kasih</p>
           </div>
         </div>
+
+        {/* Print Styles */}
+        <style>{`
+          @media print {
+            body, html {
+              margin: 0;
+              padding: 0;
+              background: white;
+            }
+            .fixed, .z-50, .animate-in, .fade-in {
+              position: static !important;
+              z-index: auto !important;
+              animation: none !important;
+              background: white !important;
+            }
+            button, [role="button"] {
+              display: none !important;
+            }
+            .print\\:block {
+              display: block !important;
+            }
+            @page {
+              size: 80mm 180mm;
+              margin: 5mm;
+            }
+          }
+        `}</style>
 
       </div>
     </div>

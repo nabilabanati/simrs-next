@@ -128,10 +128,20 @@ export default function AdminCounterPage() {
     };
     loadData();
 
-    // Set interval for refreshing stats every 30 seconds
-    const interval = setInterval(fetchLoketStatistics, 30000);
-    return () => clearInterval(interval);
-  }, [isAuthChecking]);
+    // Set interval for refreshing stats every 10 seconds
+    const statsInterval = setInterval(fetchLoketStatistics, 10000);
+    
+    // Set interval for refreshing visits every 15 seconds
+    const visitsInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing visits data...');
+      fetchVisits();
+    }, 15000);
+    
+    return () => {
+      clearInterval(statsInterval);
+      clearInterval(visitsInterval);
+    };
+  }, [isAuthChecking, activeTab]);
 
   // Load visits when tab changes
   useEffect(() => {
@@ -148,26 +158,37 @@ export default function AdminCounterPage() {
   // Fetch Loket Statistics
   const fetchLoketStatistics = async () => {
     try {
-      // Fetch waiting counts
+      // Get today's date range
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStart = today.toISOString();
+      const tomorrowStart = new Date(today);
+      tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+      const tomorrowStartISO = tomorrowStart.toISOString();
+
+      // Fetch waiting counts (only today's queue)
       const { data: waitingData } = await supabase
         .from('queue_tickets')
-        .select('loket_id, status')
-        .eq('status', 'waiting');
+        .select('loket_id, status, created_at')
+        .eq('status', 'waiting')
+        .gte('created_at', todayStart)
+        .lt('created_at', tomorrowStartISO);
 
-      // Fetch current queues (called)
+      // Fetch current queues (called) - only today's queue
       const { data: currentQueues } = await supabase
         .from('queue_tickets')
-        .select('loket_id, queue_number, status')
+        .select('loket_id, queue_number, status, called_at')
         .eq('status', 'called')
+        .gte('created_at', todayStart)
+        .lt('created_at', tomorrowStartISO)
         .order('called_at', { ascending: false });
 
       // Fetch all visits created today for count
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const { count: visitsTodayCount } = await supabase
         .from('visits')
         .select('*', { count: 'exact', head: true })
-        .gte('created_at', today.toISOString());
+        .gte('created_at', todayStart)
+        .lt('created_at', tomorrowStartISO);
 
       // Process per-loket stats
       const loketData: Record<number, any> = {};
@@ -197,6 +218,13 @@ export default function AdminCounterPage() {
           loketData[ticket.loket_id].status = 'active';
           activeLoketIds.add(ticket.loket_id);
         }
+      });
+
+      console.log('📊 Stats updated:', {
+        totalVisits: visitsTodayCount,
+        activeLokets: activeLoketIds.size,
+        waitingQueue: waitingData?.length || 0,
+        timestamp: new Date().toLocaleTimeString('id-ID')
       });
 
       setLoketStats(loketData);
@@ -452,7 +480,7 @@ export default function AdminCounterPage() {
             <Card className="bg-white/10 border-none text-white">
               <CardContent className="p-5 flex items-center justify-between">
                 <div>
-                  <p className="text-blue-100 text-sm font-medium mb-1">Total Antrian</p>
+                  <p className="text-blue-100 text-sm font-medium mb-1">Total Antrian Menunggu</p>
                   <p className="text-3xl font-bold">{stats.waitingQueue}</p>
                 </div>
                 <div className="bg-white/20 p-3 rounded-xl">
