@@ -101,8 +101,8 @@ export function LoketLayout({ children, loketId }: LoketLayoutProps) {
         <div className="p-4 border-t border-gray-200">
           <Button
             onClick={handleLogout}
-            variant="outline"
-            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+            variant="ghost"
+            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
           >
             <LogOut className="w-4 h-4 mr-2" />
             Logout

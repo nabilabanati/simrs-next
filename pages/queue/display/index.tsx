@@ -41,12 +41,12 @@ export default function QueueInfoDisplay() {
   // Fetch latest queue data from database
   const fetchLatestQueueData = async () => {
     try {
-      // Get the most recent called ticket for each loket from visits table
+      // Get the most recent called ticket for each loket from queue_tickets table
       const { data: calledTickets, error } = await supabase
-        .from('visits')
+        .from('queue_tickets')
         .select('loket_id, queue_number, called_at')
-        .eq('queue_status', 'dipanggil')
-        .not('queue_number', 'is', null)
+        .eq('status', 'called')
+        .not('loket_id', 'is', null)
         .order('called_at', { ascending: false });
 
       if (error) {
@@ -87,17 +87,38 @@ export default function QueueInfoDisplay() {
     }
   };
 
-  // Poll database every 2 seconds for updates
+  // Setup Supabase realtime subscription and polling
   useEffect(() => {
     // Initial fetch
     fetchLatestQueueData();
 
-    // Set up polling
+    // Set up Supabase realtime subscription
+    const channel = supabase
+      .channel('queue-display')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'queue_tickets',
+          filter: 'status=eq.called'
+        },
+        (payload) => {
+          console.log('Realtime update received:', payload);
+          fetchLatestQueueData();
+        }
+      )
+      .subscribe();
+
+    // Set up polling as fallback
     const pollInterval = setInterval(() => {
       fetchLatestQueueData();
-    }, 2000); // Poll every 2 seconds
+    }, 3000); // Poll every 3 seconds
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Setup event listeners for queue updates (for instant updates via broadcast)

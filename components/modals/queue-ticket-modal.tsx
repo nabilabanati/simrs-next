@@ -47,13 +47,14 @@ export default function QueueTicketModal({
     };
     fetchStaffName();
 
-    // Auto-close after 5 seconds (simulate receipt display)
-    const closeTimer = setTimeout(() => {
+    // Auto-print after 3 seconds
+    const printTimer = setTimeout(() => {
+      handlePrint();
       onClose();
-    }, 5000);
+    }, 3000);
 
     return () => {
-      clearTimeout(closeTimer);
+      clearTimeout(printTimer);
     };
   }, []);
 

@@ -33,21 +33,12 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
 };
 
 // Public routes that don't require authentication
-const PUBLIC_ROUTES = ["/login", "/register"];
-
-// Public API routes that don't require authentication
-const PUBLIC_API_ROUTES = ["/api/auth/login", "/api/auth/logout"];
+const PUBLIC_ROUTES = ["/login", "/register", "/", "/api/auth/login", "/api/auth/logout"];
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
-
+    
     console.log(`🔒 [Middleware] Checking: ${pathname}`);
-
-    // Allow exact match for homepage
-    if (pathname === "/") {
-        console.log(`✅ [Middleware] Homepage - public route`);
-        return NextResponse.next();
-    }
 
     // Allow public routes
     if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
@@ -55,14 +46,10 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
-    // Allow specific public API routes
-    if (PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route))) {
-        console.log(`✅ [Middleware] Public API route: ${pathname}`);
+    // Allow API routes (they have their own auth)
+    if (pathname.startsWith("/api/")) {
         return NextResponse.next();
     }
-
-    // All other API routes require authentication (will be checked below)
-    // Don't skip API routes - they need token validation too!
 
     // Get token from cookie or Authorization header
     const tokenFromCookie = request.cookies.get("token")?.value;
@@ -140,56 +127,49 @@ export async function middleware(request: NextRequest) {
         // Check route permissions
         for (const [route, allowedRoles] of Object.entries(ROUTE_PERMISSIONS)) {
             if (pathname.startsWith(route)) {
-                console.log(`🔍 [Middleware] Route match: ${route}, User role: ${decoded.role}, Allowed: ${allowedRoles.join(', ')}`);
-                
-                // Case-insensitive role check
-                const userRoleLower = decoded.role?.toLowerCase();
-                const hasPermission = allowedRoles.some(role => role.toLowerCase() === userRoleLower);
-                
-                if (!hasPermission) {
-                    console.log(`❌ [Middleware] Permission denied for ${pathname}`);
+                if (!allowedRoles.includes(decoded.role)) {
                     // User doesn't have permission for this route
                     return NextResponse.redirect(new URL("/unauthorized", request.url));
                 }
-
+                
                 // === LOKET ASSIGNMENT CHECK ===
                 // If user has role 'loket' and trying to access specific loket page, check assignment
                 if (decoded.role === 'loket' && pathname.match(/\/counter\/loket-(\d+)/)) {
                     const loketMatch = pathname.match(/\/counter\/loket-(\d+)/);
                     const requestedLoketId = loketMatch ? parseInt(loketMatch[1]) : null;
-
+                    
                     if (requestedLoketId) {
                         console.log(`🔍 [Middleware] Checking loket assignment for user ${decoded.username} to loket ${requestedLoketId}`);
-
+                        
                         // Check if user is assigned to this loket
                         const { data: assignments, error: assignmentError } = await supabase
                             .from('user_loket_assignment')
                             .select('loket_id')
                             .eq('user_id', decoded.id);
-
+                        
                         if (assignmentError) {
                             console.error('❌ [Middleware] Error checking loket assignment:', assignmentError);
                             return NextResponse.redirect(new URL("/unauthorized", request.url));
                         }
-
+                        
                         const assignedLokets = assignments?.map(a => a.loket_id) || [];
                         console.log(`📋 [Middleware] User assigned to lokets:`, assignedLokets);
-
+                        
                         if (assignedLokets.length === 0) {
                             console.log('❌ [Middleware] User has no loket assignments');
                             return NextResponse.redirect(new URL("/unauthorized", request.url));
                         }
-
+                        
                         if (!assignedLokets.includes(requestedLoketId)) {
                             console.log(`❌ [Middleware] User not assigned to loket ${requestedLoketId}`);
                             return NextResponse.redirect(new URL("/unauthorized", request.url));
                         }
-
+                        
                         console.log(`✅ [Middleware] User has access to loket ${requestedLoketId}`);
                     }
                 }
                 // admin_loket can access all lokets without assignment check
-
+                
                 // User has permission, allow access
                 return NextResponse.next();
             }

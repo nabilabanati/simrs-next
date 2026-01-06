@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Volume2, Users, Clock, Download } from 'lucide-react';
 import PatientSearchModal from '@/components/modals/patient-search-modal';
 import AddVisitModal from '@/components/modals/add-visit-modal';
+import QueueTicketModal from '@/components/modals/queue-ticket-modal';
 import { fetchPoli, fetchAllDoctors, fetchPaymentMethods } from '@/lib/api-client';
 import type { Poli, Doctor, PaymentMethod } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -49,7 +50,9 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
   // Modal states
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showVisitModal, setShowVisitModal] = useState(false);
+  const [showTicketModal, setShowTicketModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
+  const [savedVisitData, setSavedVisitData] = useState<any | null>(null);
 
   // API data
   const [polis, setPolis] = useState<Poli[]>([]);
@@ -68,6 +71,7 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
   const [filterDokter, setFilterDokter] = useState('');
   const [filterPenjamin, setFilterPenjamin] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [showFilter, setShowFilter] = useState(true);
 
   // ===== CLIENT-SIDE AUTH CHECK =====
   useEffect(() => {
@@ -376,7 +380,23 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
       }
 
       toast.success('Registrasi berhasil!');
+      
+      // Simpan data untuk ticket modal
+      setSavedVisitData({
+        queueNumber: currentTicket.queue_number.toString(),
+        registrationNo: data.visit?.no_reg || 'N/A',
+        nrm: selectedPatient.nrm,
+        patientName: selectedPatient.nama || selectedPatient.name,
+        poliName: visitData.poliName,
+        doctorName: visitData.dokterName,
+        paymentMethod: visitData.penjaminName,
+        price: visitData.harga,
+        bpjsNumber: selectedPatient.bpjs_number,
+        insuranceNumber: selectedPatient.insurance_number
+      });
+      
       setShowVisitModal(false);
+      setShowTicketModal(true);
       setSelectedPatient(null);
       setCurrentTicket(null);
       await fetchQueue();
@@ -608,8 +628,10 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-600 mb-1">Pasien Hari Ini</h3>
-                    <p className="text-3xl font-bold text-blue-600">{visits.length}</p>
+                    <h3 className="text-sm font-medium text-gray-600 mb-1">Pasien Terdaftar</h3>
+                    <p className="text-3xl font-bold text-blue-600">
+                      {activeTab === 'today' ? visits.filter(v => v.status === 'pending' || v.status === 'menunggu' || !v.status).length : visits.length}
+                    </p>
                   </div>
                   <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                     <Users className="w-6 h-6 text-blue-600" />
@@ -622,11 +644,15 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-600 mb-1">Terdaftar</h3>
-                    <p className="text-3xl font-bold text-green-600">{visits.length}</p>
+                    <h3 className="text-sm font-medium text-gray-600 mb-1">Pasien Selesai Penanganan</h3>
+                    <p className="text-3xl font-bold text-green-600">
+                      {visits.filter(v => v.status === 'selesai' || v.status === 'completed').length}
+                    </p>
                   </div>
                   <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <Users className="w-6 h-6 text-green-600" />
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                   </div>
                 </div>
               </CardContent>
@@ -790,6 +816,25 @@ export default function LoketInterface({ loketId }: LoketInterfaceProps) {
             setSelectedPatient(null);
           }}
           onSave={handleSaveVisit}
+        />
+      )}
+
+      {showTicketModal && savedVisitData && (
+        <QueueTicketModal
+          queueNumber={savedVisitData.queueNumber}
+          registrationNo={savedVisitData.registrationNo}
+          nrm={savedVisitData.nrm}
+          patientName={savedVisitData.patientName}
+          poliName={savedVisitData.poliName}
+          doctorName={savedVisitData.doctorName}
+          paymentMethod={savedVisitData.paymentMethod}
+          price={savedVisitData.price}
+          bpjsNumber={savedVisitData.bpjsNumber}
+          insuranceNumber={savedVisitData.insuranceNumber}
+          onClose={() => {
+            setShowTicketModal(false);
+            setSavedVisitData(null);
+          }}
         />
       )}
     </div>
